@@ -1,7 +1,14 @@
+#[macro_use]
+extern crate lazy_static;
+mod tokentype;
+mod token;
+mod scanner;
+mod error;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufReader};
 use std::io::prelude::*;
+use scanner::Scanner;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -41,6 +48,10 @@ fn run_prompt() {
     }
 }
 
-fn run(s: &String) {
-    println!("{}", s);
+fn run(source: &String) {
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan_tokens();
+    for token in tokens {
+        println!("{}", token);
+    }
 }
