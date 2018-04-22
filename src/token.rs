@@ -3,7 +3,7 @@ use tokentype::{Literals, TokenType};
 
 pub struct Token {
     token_type: TokenType,
-    lexeme: String,
+    pub lexeme: String,
     literal: Option<Literals>,
     line: u64,
 }
