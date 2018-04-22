@@ -1,14 +1,14 @@
 #[macro_use]
 extern crate lazy_static;
-mod tokentype;
-mod token;
-mod scanner;
 mod error;
+mod scanner;
+mod token;
+mod tokentype;
+use scanner::Scanner;
 use std::env;
 use std::fs::File;
-use std::io::{self, BufReader};
 use std::io::prelude::*;
-use scanner::Scanner;
+use std::io::{self, BufReader};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,20 +17,20 @@ fn main() {
     if args_len > 2 {
         println!("Usage: lox [script]");
     } else if args_len == 2 {
-        run_file(& args[1]);
+        run_file(&args[1]);
     } else {
         run_prompt();
     }
 }
 
-fn run_file(path: & String) {
+fn run_file(path: &String) {
     match File::open(path) {
-        Err(e) => println!("{:?}", e) ,
+        Err(e) => println!("{:?}", e),
         Ok(file) => {
             let mut buf_reader = BufReader::new(file);
             let mut s: String = String::from("");
             buf_reader.read_to_string(&mut s).unwrap();
-            run(& s);
+            run(&s);
         }
     }
 }
@@ -44,7 +44,7 @@ fn run_prompt() {
         stdout.flush().unwrap();
         let mut line: String = String::from("");
         buf_reader.read_line(&mut line).unwrap();
-        run(& line);
+        run(&line);
     }
 }
 

@@ -1,7 +1,7 @@
-use token::Token;
-use tokentype::{Literals, TokenType};
 use error::error;
 use std::collections::HashMap;
+use token::Token;
+use tokentype::{Literals, TokenType};
 
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -44,14 +44,14 @@ impl<'a> Scanner<'a> {
             line: 1,
         }
     }
-    pub fn scan_tokens(&mut self) -> & Vec<Token> {
+    pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
         }
         let eof = Token::new(TokenType::EOF, String::from(""), None, self.line);
         self.tokens.push(eof);
-        return & self.tokens;
+        return &self.tokens;
     }
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
@@ -75,28 +75,28 @@ impl<'a> Scanner<'a> {
                 } else {
                     self.add_token(TokenType::BANG, None);
                 }
-            },
+            }
             '=' => {
                 if self.is_match('=') {
                     self.add_token(TokenType::EQUAL_EQUAL, None);
                 } else {
                     self.add_token(TokenType::EQUAL, None);
                 }
-            },
+            }
             '<' => {
                 if self.is_match('=') {
                     self.add_token(TokenType::LESS_EQUAL, None);
                 } else {
                     self.add_token(TokenType::LESS, None);
                 }
-            },
+            }
             '>' => {
                 if self.is_match('=') {
                     self.add_token(TokenType::GREATER_EQUAL, None);
                 } else {
                     self.add_token(TokenType::GREATER, None);
                 }
-            },
+            }
             '/' => {
                 if self.is_match('/') {
                     while self.peek() != '\n' && !self.is_at_end() {
@@ -105,17 +105,17 @@ impl<'a> Scanner<'a> {
                 } else {
                     self.add_token(TokenType::SLASH, None);
                 }
-            },
-            ' ' | '\r' | '\t' => {},
+            }
+            ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string(),
-            '0' ... '9' => self.number(),
+            '0'...'9' => self.number(),
             'o' => {
                 if self.is_match('r') {
                     self.add_token(TokenType::OR, None);
                 }
-            },
-            'a' ... 'z' | 'A' ... 'Z' | '_' => self.identifier(),
+            }
+            'a'...'z' | 'A'...'Z' | '_' => self.identifier(),
             _ => error(self.line, "Unexpected character."),
         }
     }
@@ -126,7 +126,8 @@ impl<'a> Scanner<'a> {
     }
     fn add_token(&mut self, token_type: TokenType, literal: Option<Literals>) {
         let text: String = self.get_substr(self.start, self.current);
-        self.tokens.push(Token::new(token_type, text, literal, self.line));
+        self.tokens
+            .push(Token::new(token_type, text, literal, self.line));
     }
     fn is_match(&mut self, expected: char) -> bool {
         if self.is_at_end() {
@@ -141,13 +142,13 @@ impl<'a> Scanner<'a> {
 
     fn is_digit(&self, c: char) -> bool {
         match c {
-            '0' ... '9' => true,
+            '0'...'9' => true,
             _ => false,
         }
     }
     fn is_alpha(&self, c: char) -> bool {
         match c {
-            'a' ... 'z' | 'A' ... 'Z' | '_' => true,
+            'a'...'z' | 'A'...'Z' | '_' => true,
             _ => false,
         }
     }
@@ -188,7 +189,7 @@ impl<'a> Scanner<'a> {
         }
         if self.is_at_end() {
             error(self.line, "Unexpected string.");
-            return ;
+            return;
         }
         self.advance();
         let value = Literals::STRING(self.get_substr(self.start + 1, self.current - 1));
