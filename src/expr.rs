@@ -65,6 +65,14 @@ trait Visitor<T> {
     fn visit_grouping_expr(&self, expr: &Grouping) -> T;
     fn visit_literal_expr(&self, expr: &Literal) -> T;
     fn visit_unary_expr(&self, expr: &Unary) -> T;
+    fn accept(&self, expr: &Expr) -> T {
+        match expr {
+            Expr::Binary(e) => self.visit_binary_expr(e),
+            Expr::Grouping(e) => self.visit_grouping_expr(e),
+            Expr::Literal(e) => self.visit_literal_expr(e),
+            Expr::Unary(e) => self.visit_unary_expr(e),
+        }
+    }
 }
 
 struct AstPrinter;
@@ -72,14 +80,6 @@ struct AstPrinter;
 impl AstPrinter {
     fn print(&self, expr: &Expr) -> String {
         self.accept(expr)
-    }
-    fn accept(&self, expr: &Expr) -> String {
-        match expr {
-            Expr::Binary(e) => self.visit_binary_expr(e),
-            Expr::Grouping(e) => self.visit_grouping_expr(e),
-            Expr::Literal(e) => self.visit_literal_expr(e),
-            Expr::Unary(e) => self.visit_unary_expr(e),
-        }
     }
 }
 
