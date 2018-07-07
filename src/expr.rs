@@ -1,30 +1,30 @@
 use token::Token;
 use tokentype::Literals;
 
-enum Expr<'a> {
+pub enum Expr<'a> {
     Binary(Binary<'a>),
     Grouping(Grouping<'a>),
-    Literal(Literal<'a>),
+    Literal(Literal),
     Unary(Unary<'a>),
 }
 
-struct Binary<'a> {
-    left: Box<Expr<'a>>,
-    operator: &'a Token,
-    right: Box<Expr<'a>>,
+pub struct Binary<'a> {
+    pub left: Box<Expr<'a>>,
+    pub operator: &'a Token,
+    pub right: Box<Expr<'a>>,
 }
 
-struct Grouping<'a> {
-    expression: Box<Expr<'a>>,
+pub struct Grouping<'a> {
+    pub expression: Box<Expr<'a>>,
 }
 
-struct Literal<'a> {
-    value: &'a Literals,
+pub struct Literal {
+    pub value: Literals,
 }
 
-struct Unary<'a> {
-    operator: &'a Token,
-    right: Box<Expr<'a>>,
+pub struct Unary<'a> {
+    pub operator: &'a Token,
+    pub right: Box<Expr<'a>>,
 }
 
 impl<'a> Binary<'a> {
@@ -45,8 +45,8 @@ impl<'a> Grouping<'a> {
     }
 }
 
-impl<'a> Literal<'a> {
-    pub fn new(value: &'a Literals) -> Expr<'a> {
+impl<'a> Literal {
+    pub fn new(value: Literals) -> Expr<'a> {
         Expr::Literal(Literal { value: value })
     }
 }
@@ -75,10 +75,10 @@ trait Visitor<T> {
     }
 }
 
-struct AstPrinter;
+pub struct AstPrinter;
 
 impl AstPrinter {
-    fn print(&self, expr: &Expr) -> String {
+    pub fn print(&self, expr: &Expr) -> String {
         self.accept(expr)
     }
 }
@@ -98,7 +98,8 @@ impl Visitor<String> for AstPrinter {
     fn visit_literal_expr(&self, expr: &Literal) -> String {
         match expr.value {
             Literals::NUMBER(n) => format!("{}", n),
-            Literals::STRING(s) => format!("{}", s),
+            Literals::STRING(ref s) => format!("{}", s),
+            Literals::BOOL(s) => format!("{}", s.unwrap()),
         }
     }
     fn visit_unary_expr(&self, expr: &Unary) -> String {
@@ -118,9 +119,9 @@ fn test_print_ast() {
     let num1 = Literals::NUMBER(123.0);
     let num2 = Literals::NUMBER(45.67);
     let expression = Binary::new(
-        Unary::new(&minus, Literal::new(&num1)),
+        Unary::new(&minus, Literal::new(num1)),
         &star,
-        Grouping::new(Literal::new(&num2)),
+        Grouping::new(Literal::new(num2)),
     );
     let printer = AstPrinter {};
     println!("{}", printer.print(&expression));

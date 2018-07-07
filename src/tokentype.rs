@@ -1,7 +1,8 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literals {
     STRING(String),
     NUMBER(f64),
+    BOOL(Option<bool>),
 }
 
 #[allow(non_camel_case_types)]

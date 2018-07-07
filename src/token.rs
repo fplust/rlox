@@ -1,11 +1,12 @@
 use std::fmt;
 use tokentype::{Literals, TokenType};
 
+#[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
+    pub token_type: TokenType,
     pub lexeme: String,
-    literal: Option<Literals>,
-    line: u64,
+    pub literal: Option<Literals>,
+    pub line: u64,
 }
 
 impl Token {

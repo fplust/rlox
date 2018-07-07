@@ -5,7 +5,10 @@ mod expr;
 mod scanner;
 mod token;
 mod tokentype;
+mod parser;
 use scanner::Scanner;
+use parser::Parser;
+use expr::AstPrinter;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -55,4 +58,8 @@ fn run(source: &String) {
     for token in tokens {
         println!("{}", token);
     }
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse();
+    let printer = AstPrinter {};
+    println!("{}", printer.print(&expr));
 }
