@@ -38,7 +38,7 @@ pub struct Scanner<'a> {
 impl<'a> Scanner<'a> {
     pub fn new(source: &String) -> Scanner {
         Scanner {
-            source: source,
+            source,
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -52,7 +52,7 @@ impl<'a> Scanner<'a> {
         }
         let eof = Token::new(TokenType::EOF, String::from(""), None, self.line);
         self.tokens.push(eof);
-        return &self.tokens;
+        &self.tokens
     }
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
@@ -138,7 +138,7 @@ impl<'a> Scanner<'a> {
             return false;
         }
         self.current += 1;
-        return true;
+        true
     }
 
     fn is_digit(&self, c: char) -> bool {
@@ -173,13 +173,13 @@ impl<'a> Scanner<'a> {
         if self.is_at_end() {
             return '\0';
         }
-        return self.get_char(self.current);
+        self.get_char(self.current)
     }
     fn peek_next(&self) -> char {
         if self.current + 1 >= self.source.len() {
             return '\0';
         }
-        return self.get_char(self.current + 1);
+        self.get_char(self.current + 1)
     }
     fn string(&mut self) {
         while self.peek() != '"' && !self.is_at_end() {
