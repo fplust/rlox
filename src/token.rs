@@ -1,5 +1,5 @@
 use std::fmt;
-use tokentype::{Literals, TokenType};
+use crate::tokentype::{Literals, TokenType};
 
 #[derive(Debug, Clone)]
 pub struct Token {

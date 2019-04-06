@@ -1,14 +1,12 @@
-#[macro_use]
-extern crate lazy_static;
 mod error;
 mod expr;
+mod parser;
 mod scanner;
 mod token;
 mod tokentype;
-mod parser;
-use scanner::Scanner;
-use parser::Parser;
-use expr::AstPrinter;
+use crate::expr::AstPrinter;
+use crate::parser::Parser;
+use crate::scanner::Scanner;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;

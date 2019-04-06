@@ -1,5 +1,5 @@
-use token::Token;
-use tokentype::Literals;
+use crate::token::Token;
+use crate::tokentype::Literals;
 
 pub enum Expr<'a> {
     Binary(Binary<'a>),
@@ -111,18 +111,22 @@ impl Visitor<String> for AstPrinter {
     }
 }
 
-#[test]
-fn test_print_ast() {
-    use tokentype::TokenType;
-    let minus = Token::new(TokenType::MINUS, '-'.to_string(), None, 1);
-    let star = Token::new(TokenType::STAR, "*".to_string(), None, 1);
-    let num1 = Literals::NUMBER(123.0);
-    let num2 = Literals::NUMBER(45.67);
-    let expression = Binary::new(
-        Unary::new(&minus, Literal::new(num1)),
-        &star,
-        Grouping::new(Literal::new(num2)),
-    );
-    let printer = AstPrinter {};
-    println!("{}", printer.print(&expression));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_print_ast() {
+        use crate::tokentype::TokenType;
+        let minus = Token::new(TokenType::MINUS, '-'.to_string(), None, 1);
+        let star = Token::new(TokenType::STAR, "*".to_string(), None, 1);
+        let num1 = Literals::NUMBER(123.0);
+        let num2 = Literals::NUMBER(45.67);
+        let expression = Binary::new(
+            Unary::new(&minus, Literal::new(num1)),
+            &star,
+            Grouping::new(Literal::new(num2)),
+        );
+        let printer = AstPrinter {};
+        println!("{}", printer.print(&expression));
+    }
 }
