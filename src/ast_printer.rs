@@ -26,7 +26,8 @@ impl Visitor<String> for AstPrinter {
         match expr.value {
             Literals::NUMBER(n) => format!("{}", n),
             Literals::STRING(ref s) => format!("{}", s),
-            Literals::BOOL(s) => format!("{}", s.unwrap()),
+            Literals::BOOL(s) => format!("{}", s),
+            Literals::NIL(s) => format!("{:?}", s),
         }
     }
     fn visit_unary_expr(&self, expr: &Unary) -> String {

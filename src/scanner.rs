@@ -1,8 +1,8 @@
-use lazy_static::lazy_static;
 use crate::error::error;
-use std::collections::HashMap;
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 
 lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, TokenType> = {

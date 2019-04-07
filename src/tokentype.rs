@@ -2,7 +2,8 @@
 pub enum Literals {
     STRING(String),
     NUMBER(f64),
-    BOOL(Option<bool>),
+    BOOL(bool),
+    NIL(Option<()>),
 }
 
 #[allow(non_camel_case_types)]

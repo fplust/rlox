@@ -4,8 +4,12 @@ mod parser;
 mod scanner;
 mod token;
 mod tokentype;
-mod ast_printer;
-use crate::ast_printer::AstPrinter;
+// mod ast_printer;
+mod environment;
+mod interpreter;
+mod stmt;
+// use crate::ast_printer::AstPrinter;
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use std::env;
@@ -58,7 +62,9 @@ fn run(source: &String) {
         println!("{}", token);
     }
     let mut parser = Parser::new(tokens);
-    let expr = parser.parse();
-    let printer = AstPrinter {};
-    println!("{}", printer.print(&expr));
+    let statements = parser.parse().expect("Error");
+    // let printer = AstPrinter {};
+    // println!("{}", printer.print(&expr));
+    let mut interpreter = Interpreter::new();
+    interpreter.interpret(statements);
 }

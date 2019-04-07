@@ -1,30 +1,48 @@
 use crate::token::Token;
 use crate::tokentype::Literals;
 
+#[derive(Debug, Clone)]
 pub enum Expr {
     Binary(Binary),
     Grouping(Grouping),
     Literal(Literal),
     Unary(Unary),
+    Variable(Variable),
+    Assign(Assign),
 }
 
+#[derive(Debug, Clone)]
 pub struct Binary {
     pub left: Box<Expr>,
     pub operator: Token,
     pub right: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Grouping {
     pub expression: Box<Expr>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Literal {
     pub value: Literals,
 }
 
+#[derive(Debug, Clone)]
 pub struct Unary {
     pub operator: Token,
     pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Variable {
+    pub name: Token,
+}
+
+#[derive(Debug, Clone)]
+pub struct Assign {
+    pub name: Token,
+    pub value: Box<Expr>,
 }
 
 impl Binary {
@@ -60,20 +78,39 @@ impl Unary {
     }
 }
 
+impl Variable {
+    pub fn new(name: Token) -> Expr {
+        Expr::Variable(Variable { name })
+    }
+}
+
+impl Assign {
+    pub fn new(name: Token, value: Expr) -> Expr {
+        Expr::Assign(Assign {
+            name,
+            value: Box::new(value),
+        })
+    }
+}
+
 impl Expr {
-    pub fn accept<T, V: Visitor<T>> (&self, visitor: &V) -> T {
+    pub fn accept<T, V: Visitor<T>>(&self, visitor: &mut V) -> T {
         match self {
             Expr::Binary(e) => visitor.visit_binary_expr(e),
             Expr::Grouping(e) => visitor.visit_grouping_expr(e),
             Expr::Literal(e) => visitor.visit_literal_expr(e),
             Expr::Unary(e) => visitor.visit_unary_expr(e),
+            Expr::Variable(e) => visitor.visit_variable_expr(e),
+            Expr::Assign(e) => visitor.visit_assign_expr(e),
         }
     }
 }
 
 pub trait Visitor<T> {
-    fn visit_binary_expr(&self, expr: &Binary) -> T;
-    fn visit_grouping_expr(&self, expr: &Grouping) -> T;
+    fn visit_binary_expr(&mut self, expr: &Binary) -> T;
+    fn visit_grouping_expr(&mut self, expr: &Grouping) -> T;
     fn visit_literal_expr(&self, expr: &Literal) -> T;
-    fn visit_unary_expr(&self, expr: &Unary) -> T;
+    fn visit_unary_expr(&mut self, expr: &Unary) -> T;
+    fn visit_variable_expr(&self, expr: &Variable) -> T;
+    fn visit_assign_expr(&mut self, expr: &Assign) -> T;
 }
