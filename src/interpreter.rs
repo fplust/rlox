@@ -1,8 +1,8 @@
 use crate::environment::Environment;
 use crate::expr;
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable};
+use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Logical};
 use crate::stmt;
-use crate::stmt::{Block, Expression, Print, Stmt, Var};
+use crate::stmt::{Block, Expression, Print, Stmt, Var, If, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 
@@ -12,6 +12,16 @@ pub enum Object {
     NUMBER(f64),
     BOOL(bool),
     NIL(Option<()>),
+}
+
+impl Object {
+    fn to_bool(&self) -> Result<bool, ()> {
+        match self {
+            Object::BOOL(b) => Ok(b.clone()),
+            Object::NIL(_) => Ok(false),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -33,6 +43,7 @@ pub type RTResult = Result<Object, RuntimeError>;
 
 static NUM_ERROR: &str = "Operands must be numbers.";
 static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
+static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
     environment: Environment,
@@ -46,7 +57,7 @@ impl Interpreter {
     }
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
         for statement in statements {
-            self.execute(&statement);
+            self.execute(&statement).unwrap();
         }
     }
     fn execute(&mut self, stmt: &Stmt) -> RTResult {
@@ -55,13 +66,13 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
-        let previous = self.environment.clone();
+    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> RTResult {
         self.environment = environment;
         for statement in statements {
-            self.execute(&statement);
+            self.execute(&statement)?;
         }
-        self.environment = previous;
+        self.environment = self.environment.get_enclosing();
+        Ok(Object::NIL(None))
     }
 }
 
@@ -195,13 +206,9 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
                 }
             },
-            TokenType::BANG => match right {
-                Object::BOOL(n) => {
-                    return Ok(Object::BOOL(!n));
-                }
-                _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
-                }
+            TokenType::BANG => {
+                let b = right.to_bool().map_err(|_| RuntimeError::new(&expr.operator, BOOL_ERROR))?;
+                return Ok(Object::BOOL(!b))
             },
             _ => {
                 panic!();
@@ -214,6 +221,16 @@ impl expr::Visitor<RTResult> for Interpreter {
     fn visit_assign_expr(&mut self, expr: &Assign) -> RTResult {
         let value = self.evalute(&expr.value)?;
         self.environment.assign(expr.name.clone(), value)
+    }
+    fn visit_logical_expr(&mut self, expr: &Logical) -> RTResult {
+        let left = self.evalute(&expr.left)?;
+        let b = left.to_bool().map_err(|_| RuntimeError::new(&expr.operator, ""))?;
+        match expr.operator.token_type {
+            TokenType::OR => { if b { return Ok(left); } },
+            TokenType::AND => { if !b { return Ok(left); } },
+            _ => { return Err(RuntimeError::new(&expr.operator, "token error")) },
+        }
+        self.evalute(&expr.right)
     }
 }
 
@@ -234,9 +251,34 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
         self.execute_block(
             &stmt.statements,
-            Environment::from_env(self.environment.clone()),
-        );
+            Environment::from_env(self.environment.clone())
+        )
+    }
+    fn visit_if_stmt(&mut self, stmt: &If) -> RTResult {
+        let condition: bool;
+        let obj = self.evalute(&stmt.condition)?;
+        match obj.to_bool() {
+            Ok(b) => { condition = b; },
+            Err(_) => { return Err(RuntimeError::new(&stmt.token, "if statements condition type must be bool or nil")); }
+        }
+        if condition {
+            self.execute(&stmt.then_branch)?;
+        } else if stmt.else_branch.is_some() {
+            self.execute(stmt.else_branch.as_ref().unwrap())?;
+        }
         Ok(Object::NIL(None))
+    }
+    fn visit_while_stmt(&mut self, stmt: &While) -> RTResult {
+        loop {
+            let condition = self.evalute(&stmt.condition)?;
+            let b = condition.to_bool().map_err(
+                |_| RuntimeError::new(&stmt.token, "while statements condition type must be bool or nil"))?;
+            if !b {
+                return Ok(Object::NIL(None));
+            } else {
+                self.execute(&stmt.body)?;
+            }
+        }
     }
 }
 

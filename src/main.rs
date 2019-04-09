@@ -58,9 +58,9 @@ fn run_prompt() {
 fn run(source: &String) {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
-    for token in tokens {
-        println!("{}", token);
-    }
+    // for token in tokens {
+    //     println!("{}", token);
+    // }
     let mut parser = Parser::new(tokens);
     let statements = parser.parse().expect("Error");
     // let printer = AstPrinter {};

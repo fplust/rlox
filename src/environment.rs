@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Environment {
+    // TODO: 重构改为引用
     enclosing: Option<Box<Environment>>,
     values: HashMap<String, Object>,
 }
@@ -21,6 +22,11 @@ impl Environment {
             values: HashMap::new(),
         }
     }
+
+    pub fn get_enclosing(&self) -> Environment {
+        *self.clone().enclosing.unwrap()
+    }
+
     pub fn define(&mut self, name: String, value: Object) {
         self.values.insert(name, value);
     }
@@ -47,7 +53,8 @@ impl Environment {
             Ok(value)
         } else {
             if self.enclosing.is_some() {
-                self.enclosing.as_mut().unwrap().assign(name, value)
+                let r = self.enclosing.as_mut().unwrap().assign(name, value);
+                return r
             } else {
                 Err(RuntimeError::new(
                     &name,

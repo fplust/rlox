@@ -1,6 +1,6 @@
 use crate::error::report;
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable};
-use crate::stmt::{Block, Expression, Print, Stmt, Var};
+use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Logical};
+use crate::stmt::{Block, Expression, Print, Stmt, Var, If, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::mem;
@@ -44,8 +44,17 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Stmt {
+        if self.match_token(vec![TokenType::FOR]) {
+            return self.for_statement();
+        }
+        if self.match_token(vec![TokenType::IF]) {
+            return self.if_statement();
+        }
         if self.match_token(vec![TokenType::PRINT]) {
             return self.print_statement();
+        }
+        if self.match_token(vec![TokenType::WHILE]) {
+            return self.while_statement();
         }
         if self.match_token(vec![TokenType::LEFT_BRACE]) {
             return Block::new(self.block());
@@ -53,10 +62,65 @@ impl<'a> Parser<'a> {
         self.expression_statement()
     }
 
+    fn for_statement(&mut self) -> Stmt {
+        let token = self.previous();
+        self.consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+        let initializer;
+        if self.match_token(vec![TokenType::SEMICOLON]) {
+            initializer = None;
+        } else if self.match_token(vec![TokenType::VAR]) {
+            initializer = Some(self.var_declaration());
+        } else {
+            initializer = Some(self.expression_statement());
+        }
+        let mut condition = Literal::new(Literals::BOOL(true));
+        if !self.check(TokenType::SEMICOLON) {
+            condition = self.expression().unwrap();
+        }
+        self.consume(TokenType::SEMICOLON, "Expect ';' after loop condition.");
+        let mut increment = None;
+        if !self.check(TokenType::RIGHT_PAREN) {
+            increment = Some(self.expression().unwrap());
+        }
+        self.consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
+        let mut body = self.statement();
+
+        if increment.is_some() {
+            body = Block::new(vec![body, Expression::new(increment.unwrap())]);
+        }
+        body = While::new(token, condition, body);
+        if initializer.is_some() {
+            body = Block::new(vec![initializer.unwrap(), body]);
+        }
+        body
+    }
+
+    fn if_statement(&mut self) -> Stmt {
+        let token = self.previous();
+        self.consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
+        let condition = self.expression().unwrap();
+        self.consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.");
+        let then_branch = self.statement();
+        let mut else_branch = None;
+        if self.match_token(vec![TokenType::ELSE]) {
+            else_branch = Some(self.statement());
+        }
+        If::new(token, condition, then_branch, else_branch)
+    }
+
     fn print_statement(&mut self) -> Stmt {
         let expr = self.expression().unwrap();
         self.consume(TokenType::SEMICOLON, "Expect ';' after value.");
         Print::new(expr)
+    }
+
+    fn while_statement(&mut self) -> Stmt {
+        let token = self.previous();
+        self.consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+        let condition = self.expression().unwrap();
+        self.consume(TokenType::RIGHT_PAREN, "Expect ')' after 'condition'.");
+        let body = self.statement();
+        While::new(token, condition, body)
     }
 
     fn expression_statement(&mut self) -> Stmt {
@@ -80,7 +144,8 @@ impl<'a> Parser<'a> {
     }
 
     fn assignment(&mut self) -> Result<Expr, String> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
+        // let expr = self.equality()?;
         if self.match_token(vec![TokenType::EQUAL]) {
             let equals = self.previous();
             let value = self.assignment()?;
@@ -94,6 +159,26 @@ impl<'a> Parser<'a> {
             return Err(self
                 .error(&equals, "Invalid assignment target.")
                 .unwrap_err());
+        }
+        Ok(expr)
+    }
+
+    fn or(&mut self) -> Result<Expr, String> {
+        let mut expr = self.and()?;
+        while self.match_token(vec![TokenType::OR]) {
+            let operator = self.previous();
+            let right = self.and()?;
+            expr = Logical::new(expr, operator, right);
+        }
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Expr, String> {
+        let mut expr = self.equality()?;
+        while self.match_token(vec![TokenType::AND]) {
+            let operator = self.previous();
+            let right = self.equality()?;
+            expr = Logical::new(expr, operator, right);
         }
         Ok(expr)
     }
