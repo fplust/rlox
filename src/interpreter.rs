@@ -46,7 +46,7 @@ static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
 static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
-    environment: Environment,
+    environment: Box<Environment>,
 }
 
 impl Interpreter {
@@ -66,12 +66,12 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> RTResult {
+    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Box<Environment>) -> RTResult {
         self.environment = environment;
         for statement in statements {
             self.execute(&statement)?;
         }
-        self.environment = self.environment.get_enclosing();
+        self.environment = self.environment.take_enclosing();
         Ok(Object::NIL(None))
     }
 }

@@ -10,21 +10,21 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn new() -> Environment {
-        Environment {
+    pub fn new() -> Box<Environment> {
+        Box::new(Environment {
             enclosing: None,
             values: HashMap::new(),
-        }
+        })
     }
-    pub fn from_env(enclosing: Environment) -> Environment {
-        Environment {
-            enclosing: Some(Box::new(enclosing)),
+    pub fn from_env(enclosing: Box<Environment>) -> Box<Environment> {
+        Box::new(Environment {
+            enclosing: Some(enclosing),
             values: HashMap::new(),
-        }
+        })
     }
 
-    pub fn get_enclosing(&self) -> Environment {
-        *self.clone().enclosing.unwrap()
+    pub fn take_enclosing(&mut self) -> Box<Environment> {
+        self.enclosing.take().unwrap()
     }
 
     pub fn define(&mut self, name: String, value: Object) {
