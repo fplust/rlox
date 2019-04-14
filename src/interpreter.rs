@@ -1,8 +1,9 @@
-use crate::environment::Environment;
+use crate::environment::{Closure, Environment};
 use crate::expr;
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Logical};
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::lox_function::{Callable, LoxFunction};
 use crate::stmt;
-use crate::stmt::{Block, Expression, Print, Stmt, Var, If, While};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 
@@ -12,6 +13,7 @@ pub enum Object {
     NUMBER(f64),
     BOOL(bool),
     NIL(Option<()>),
+    Function(LoxFunction),
 }
 
 impl Object {
@@ -25,7 +27,7 @@ impl Object {
 }
 
 #[derive(Debug, Clone)]
-pub struct RuntimeError {
+struct RuntimeError {
     token: Token,
     message: String,
 }
@@ -39,14 +41,40 @@ impl RuntimeError {
     }
 }
 
-pub type RTResult = Result<Object, RuntimeError>;
+#[derive(Debug, Clone)]
+pub struct ReturnValue {
+    pub value: Object,
+}
+
+impl ReturnValue {
+    pub fn new(value: Object) -> ReturnValue {
+        ReturnValue { value }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum RuntimeException {
+    ERROR(RuntimeError),
+    RETURN(ReturnValue),
+}
+
+impl RuntimeException {
+    pub fn error(token: &Token, message: &str) -> RuntimeException {
+        RuntimeException::ERROR(RuntimeError::new(token, message))
+    }
+    pub fn return_v(value: Object) -> RuntimeException {
+        RuntimeException::RETURN(ReturnValue::new(value))
+    }
+}
+
+pub type RTResult = Result<Object, RuntimeException>;
 
 static NUM_ERROR: &str = "Operands must be numbers.";
 static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
 static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
-    environment: Box<Environment>,
+    pub environment: Closure,
 }
 
 impl Interpreter {
@@ -66,12 +94,26 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Box<Environment>) -> RTResult {
+    pub fn execute_block(
+        &mut self,
+        statements: &Vec<Stmt>,
+        environment: Closure,
+    ) -> RTResult {
+        let env = self.environment.clone();
         self.environment = environment;
+        // println!("current: {:?}\n", self.environment);
+        // println!("statements: {:?}\n", statements);
         for statement in statements {
-            self.execute(&statement)?;
+            match self.execute(&statement) {
+                Err(e) => {
+                    self.environment = env;
+                    return Err(e)
+                },
+                _ => (),
+            }
         }
-        self.environment = self.environment.take_enclosing();
+        self.environment = env;
+        // println!("up: {:?}\n", self.environment);
         Ok(Object::NIL(None))
     }
 }
@@ -90,7 +132,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::STRING(l + r.as_str()));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_STR_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_STR_ERROR));
                 }
             },
             TokenType::MINUS => match (left, right) {
@@ -98,7 +140,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::NUMBER(l - r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::SLASH => match (left, right) {
@@ -106,7 +148,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::NUMBER(l / r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::STAR => match (left, right) {
@@ -114,7 +156,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::NUMBER(l * r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::GREATER => match (left, right) {
@@ -122,7 +164,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(l > r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::GREATER_EQUAL => match (left, right) {
@@ -130,7 +172,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(l >= r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::LESS => match (left, right) {
@@ -138,7 +180,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(l < r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::LESS_EQUAL => match (left, right) {
@@ -146,7 +188,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(l <= r));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::BANG_EQUAL => match (left, right) {
@@ -160,11 +202,14 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(true));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::EQUAL_EQUAL => match (left, right) {
                 (Object::NUMBER(l), Object::NUMBER(r)) => {
+                    return Ok(Object::BOOL(l == r));
+                }
+                (Object::STRING(l), Object::STRING(r)) => {
                     return Ok(Object::BOOL(l == r));
                 }
                 (Object::NIL(_), Object::NIL(_)) => {
@@ -174,7 +219,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::BOOL(false));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             _ => {
@@ -203,34 +248,74 @@ impl expr::Visitor<RTResult> for Interpreter {
                     return Ok(Object::NUMBER(-n));
                 }
                 _ => {
-                    return Err(RuntimeError::new(&expr.operator, NUM_ERROR));
+                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
                 }
             },
             TokenType::BANG => {
-                let b = right.to_bool().map_err(|_| RuntimeError::new(&expr.operator, BOOL_ERROR))?;
-                return Ok(Object::BOOL(!b))
-            },
+                let b = right
+                    .to_bool()
+                    .map_err(|_| RuntimeException::error(&expr.operator, BOOL_ERROR))?;
+                return Ok(Object::BOOL(!b));
+            }
             _ => {
                 panic!();
             }
         }
     }
     fn visit_variable_expr(&self, expr: &Variable) -> RTResult {
-        self.environment.get(&expr.name)
+        self.environment.borrow().get(&expr.name)
     }
     fn visit_assign_expr(&mut self, expr: &Assign) -> RTResult {
         let value = self.evalute(&expr.value)?;
-        self.environment.assign(expr.name.clone(), value)
+        self.environment.borrow_mut().assign(expr.name.clone(), value)
     }
     fn visit_logical_expr(&mut self, expr: &Logical) -> RTResult {
         let left = self.evalute(&expr.left)?;
-        let b = left.to_bool().map_err(|_| RuntimeError::new(&expr.operator, ""))?;
+        let b = left
+            .to_bool()
+            .map_err(|_| RuntimeException::error(&expr.operator, ""))?;
         match expr.operator.token_type {
-            TokenType::OR => { if b { return Ok(left); } },
-            TokenType::AND => { if !b { return Ok(left); } },
-            _ => { return Err(RuntimeError::new(&expr.operator, "token error")) },
+            TokenType::OR => {
+                if b {
+                    return Ok(left);
+                }
+            }
+            TokenType::AND => {
+                if !b {
+                    return Ok(left);
+                }
+            }
+            _ => return Err(RuntimeException::error(&expr.operator, "token error")),
         }
         self.evalute(&expr.right)
+    }
+    fn visit_call_expr(&mut self, expr: &Call) -> RTResult {
+        let callee = self.evalute(&expr.callee)?;
+        let mut arguments: Vec<Object> = Vec::new();
+        for argument in expr.arguments.iter() {
+            arguments.push(self.evalute(&argument)?);
+        }
+        match callee {
+            Object::Function(func) => {
+                if arguments.len() != func.arity() {
+                    Err(RuntimeException::error(
+                        &expr.paren,
+                        format!(
+                            "Expected {} arguments but got {}.",
+                            func.arity(),
+                            arguments.len(),
+                        )
+                        .as_str(),
+                    ))
+                } else {
+                    func.call(self, arguments)
+                }
+            }
+            _ => Err(RuntimeException::error(
+                &expr.paren,
+                "Can only call functions and classes.",
+            )),
+        }
     }
 }
 
@@ -245,21 +330,28 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_var_stmt(&mut self, stmt: &Var) -> RTResult {
         let obj = self.evalute(&stmt.initializer)?;
-        self.environment.define(stmt.name.lexeme.clone(), obj);
+        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), obj);
         Ok(Object::NIL(None))
     }
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
         self.execute_block(
             &stmt.statements,
-            Environment::from_env(self.environment.clone())
+            Environment::from_env(self.environment.clone()),
         )
     }
     fn visit_if_stmt(&mut self, stmt: &If) -> RTResult {
         let condition: bool;
         let obj = self.evalute(&stmt.condition)?;
         match obj.to_bool() {
-            Ok(b) => { condition = b; },
-            Err(_) => { return Err(RuntimeError::new(&stmt.token, "if statements condition type must be bool or nil")); }
+            Ok(b) => {
+                condition = b;
+            }
+            Err(_) => {
+                return Err(RuntimeException::error(
+                    &stmt.token,
+                    "if statements condition type must be bool or nil",
+                ));
+            }
         }
         if condition {
             self.execute(&stmt.then_branch)?;
@@ -271,14 +363,27 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_while_stmt(&mut self, stmt: &While) -> RTResult {
         loop {
             let condition = self.evalute(&stmt.condition)?;
-            let b = condition.to_bool().map_err(
-                |_| RuntimeError::new(&stmt.token, "while statements condition type must be bool or nil"))?;
+            let b = condition.to_bool().map_err(|_| {
+                RuntimeException::error(
+                    &stmt.token,
+                    "while statements condition type must be bool or nil",
+                )
+            })?;
             if !b {
                 return Ok(Object::NIL(None));
             } else {
                 self.execute(&stmt.body)?;
             }
         }
+    }
+    fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
+        let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
+        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), function);
+        Ok(Object::NIL(None))
+    }
+    fn visit_return_stmt(&mut self, stmt: &Return) -> RTResult {
+        let obj = self.evalute(&stmt.value)?;
+        Err(RuntimeException::return_v(obj))
     }
 }
 

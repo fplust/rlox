@@ -1,6 +1,6 @@
 use crate::error::report;
-use crate::expr::{Assign, Binary, Expr, Grouping, Literal, Unary, Variable, Logical};
-use crate::stmt::{Block, Expression, Print, Stmt, Var, If, While};
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::mem;
@@ -24,10 +24,42 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> Stmt {
+        if self.match_token(vec![TokenType::FUN]) {
+            return self.function("function");
+        }
         if self.match_token(vec![TokenType::VAR]) {
             return self.var_declaration();
         }
         self.statement()
+    }
+
+    fn function(&mut self, kind: &str) -> Stmt {
+        let name = self.consume(
+            TokenType::IDENTIFIER,
+            format!("Expect {} name.", kind).as_str(),
+        );
+        self.consume(
+            TokenType::LEFT_PAREN,
+            format!("Expect '(' after {} name.", kind).as_str(),
+        );
+        let mut parameters: Vec<Token> = Vec::new();
+        if !self.check(TokenType::RIGHT_PAREN) {
+            while {
+                if parameters.len() >= 8 {
+                    self.error(self.peek(), "Cannot have more than 8 parameters.")
+                        .unwrap();
+                }
+                parameters.push(self.consume(TokenType::IDENTIFIER, "Expect parameter name."));
+                self.match_token(vec![TokenType::COMMA])
+            } {}
+        }
+        self.consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
+        self.consume(
+            TokenType::LEFT_BRACE,
+            format!("Expect '{{' before {} body.", kind).as_str(),
+        );
+        let body = self.block();
+        Function::new(name, parameters, body)
     }
 
     fn var_declaration(&mut self) -> Stmt {
@@ -52,6 +84,9 @@ impl<'a> Parser<'a> {
         }
         if self.match_token(vec![TokenType::PRINT]) {
             return self.print_statement();
+        }
+        if self.match_token(vec![TokenType::RETURN]) {
+            return self.return_statement();
         }
         if self.match_token(vec![TokenType::WHILE]) {
             return self.while_statement();
@@ -112,6 +147,16 @@ impl<'a> Parser<'a> {
         let expr = self.expression().unwrap();
         self.consume(TokenType::SEMICOLON, "Expect ';' after value.");
         Print::new(expr)
+    }
+
+    fn return_statement(&mut self) -> Stmt {
+        let keyword = self.previous();
+        let mut value = Literal::new(Literals::NIL(None));
+        if !self.check(TokenType::SEMICOLON) {
+            value = self.expression().unwrap();
+        }
+        self.consume(TokenType::SEMICOLON, "Expect ';' after return value.");
+        Return::new(keyword, value)
     }
 
     fn while_statement(&mut self) -> Stmt {
@@ -234,7 +279,34 @@ impl<'a> Parser<'a> {
             let right = self.unary()?;
             return Ok(Unary::new(operator, right));
         }
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Expr, String> {
+        let mut expr = self.primary()?;
+        loop {
+            if self.match_token(vec![TokenType::LEFT_PAREN]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, String> {
+        let mut arguments: Vec<Expr> = Vec::new();
+        if !self.check(TokenType::RIGHT_PAREN) {
+            while {
+                if arguments.len() >= 8 {
+                    self.error(self.peek(), "Cannot have more than 8 arguments.")?;
+                }
+                arguments.push(self.expression()?);
+                self.match_token(vec![TokenType::COMMA])
+            } {}
+        }
+        let paren = self.consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
+        Ok(Call::new(callee, paren, arguments))
     }
 
     fn primary(&mut self) -> Result<Expr, String> {
@@ -307,7 +379,7 @@ impl<'a> Parser<'a> {
         if self.check(token_type) {
             return self.advance();
         }
-        self.error(self.peek(), message);
+        self.error(self.peek(), message).unwrap();
         panic!();
     }
 

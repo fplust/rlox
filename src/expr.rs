@@ -10,6 +10,7 @@ pub enum Expr {
     Variable(Variable),
     Assign(Assign),
     Logical(Logical),
+    Call(Call),
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,13 @@ pub struct Logical {
     pub left: Box<Expr>,
     pub operator: Token,
     pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Call {
+    pub callee: Box<Expr>,
+    pub paren: Token,
+    pub arguments: Vec<Expr>,
 }
 
 impl Binary {
@@ -111,6 +119,16 @@ impl Logical {
     }
 }
 
+impl Call {
+    pub fn new(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Expr {
+        Expr::Call(Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        })
+    }
+}
+
 impl Expr {
     pub fn accept<T, V: Visitor<T>>(&self, visitor: &mut V) -> T {
         match self {
@@ -121,6 +139,7 @@ impl Expr {
             Expr::Variable(e) => visitor.visit_variable_expr(e),
             Expr::Assign(e) => visitor.visit_assign_expr(e),
             Expr::Logical(e) => visitor.visit_logical_expr(e),
+            Expr::Call(e) => visitor.visit_call_expr(e),
         }
     }
 }
@@ -133,4 +152,5 @@ pub trait Visitor<T> {
     fn visit_variable_expr(&self, expr: &Variable) -> T;
     fn visit_assign_expr(&mut self, expr: &Assign) -> T;
     fn visit_logical_expr(&mut self, expr: &Logical) -> T;
+    fn visit_call_expr(&mut self, expr: &Call) -> T;
 }

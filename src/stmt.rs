@@ -10,6 +10,9 @@ pub enum Stmt {
     Block(Block),
     If(If),
     While(While),
+    // For(For),
+    Function(Function),
+    Return(Return),
 }
 
 #[derive(Debug, Clone)]
@@ -48,16 +51,18 @@ pub struct While {
     pub body: Box<Stmt>,
 }
 
-/*
 #[derive(Debug, Clone)]
-pub struct For {
-    pub token: Token,
-    pub initializer: Option<Box<Stmt>>,
-    pub condition: Option<Box<Expr>>,
-    pub increment: Option<Box<Expr>>,
-    pub body: Box<Stmt>,
+pub struct Function {
+    pub name: Token,
+    pub params: Vec<Token>,
+    pub body: Vec<Stmt>,
 }
-*/
+
+#[derive(Debug, Clone)]
+pub struct Return {
+    pub keyword: Token,
+    pub value: Box<Expr>,
+}
 
 impl Expression {
     pub fn new(expression: Expr) -> Stmt {
@@ -91,7 +96,12 @@ impl Block {
 }
 
 impl If {
-    pub fn new(token: Token, condition: Expr, then_branch: Stmt, else_branch: Option<Stmt>) -> Stmt {
+    pub fn new(
+        token: Token,
+        condition: Expr,
+        then_branch: Stmt,
+        else_branch: Option<Stmt>,
+    ) -> Stmt {
         Stmt::If(If {
             token,
             condition: Box::new(condition),
@@ -107,6 +117,21 @@ impl While {
             token,
             condition: Box::new(condition),
             body: Box::new(body),
+        })
+    }
+}
+
+impl Function {
+    pub fn new(name: Token, params: Vec<Token>, body: Vec<Stmt>) -> Stmt {
+        Stmt::Function(Function { name, params, body })
+    }
+}
+
+impl Return {
+    pub fn new(keyword: Token, value: Expr) -> Stmt {
+        Stmt::Return(Return {
+            keyword,
+            value: Box::new(value),
         })
     }
 }
@@ -134,6 +159,8 @@ impl Stmt {
             Stmt::Block(e) => visitor.visit_block_stmt(e),
             Stmt::If(e) => visitor.visit_if_stmt(e),
             Stmt::While(e) => visitor.visit_while_stmt(e),
+            Stmt::Function(e) => visitor.visit_function_stmt(e),
+            Stmt::Return(e) => visitor.visit_return_stmt(e),
         }
     }
 }
@@ -145,4 +172,6 @@ pub trait Visitor<T> {
     fn visit_block_stmt(&mut self, stmt: &Block) -> T;
     fn visit_if_stmt(&mut self, stmt: &If) -> T;
     fn visit_while_stmt(&mut self, stmt: &While) -> T;
+    fn visit_function_stmt(&mut self, stmt: &Function) -> T;
+    fn visit_return_stmt(&mut self, stmt: &Return) -> T;
 }

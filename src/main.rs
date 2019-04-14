@@ -7,6 +7,7 @@ mod tokentype;
 // mod ast_printer;
 mod environment;
 mod interpreter;
+mod lox_function;
 mod stmt;
 // use crate::ast_printer::AstPrinter;
 use crate::interpreter::Interpreter;
