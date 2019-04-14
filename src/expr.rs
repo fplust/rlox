@@ -81,7 +81,7 @@ impl Grouping {
 
 impl Literal {
     pub fn new(value: Literals) -> Expr {
-        Expr::Literal(Literal { value: value })
+        Expr::Literal(Literal { value })
     }
 }
 

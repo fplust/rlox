@@ -64,10 +64,11 @@ impl<'a> Parser<'a> {
 
     fn var_declaration(&mut self) -> Stmt {
         let name = self.consume(TokenType::IDENTIFIER, "Expect variable name.");
-        let mut initializer = Literal::new(Literals::NIL(None));
-        if self.match_token(vec![TokenType::EQUAL]) {
-            initializer = self.expression().unwrap();
-        }
+        let initializer = if self.match_token(vec![TokenType::EQUAL]) {
+            self.expression().unwrap()
+        } else {
+            Literal::new(Literals::NIL(None))
+        };
         self.consume(
             TokenType::SEMICOLON,
             "Expect ';' after variable declaration.",
@@ -100,23 +101,24 @@ impl<'a> Parser<'a> {
     fn for_statement(&mut self) -> Stmt {
         let token = self.previous();
         self.consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
-        let initializer;
-        if self.match_token(vec![TokenType::SEMICOLON]) {
-            initializer = None;
+        let initializer = if self.match_token(vec![TokenType::SEMICOLON]) {
+            None
         } else if self.match_token(vec![TokenType::VAR]) {
-            initializer = Some(self.var_declaration());
+            Some(self.var_declaration())
         } else {
-            initializer = Some(self.expression_statement());
-        }
-        let mut condition = Literal::new(Literals::BOOL(true));
-        if !self.check(TokenType::SEMICOLON) {
-            condition = self.expression().unwrap();
-        }
+            Some(self.expression_statement())
+        };
+        let condition = if !self.check(TokenType::SEMICOLON) {
+            self.expression().unwrap()
+        } else {
+            Literal::new(Literals::BOOL(true))
+        };
         self.consume(TokenType::SEMICOLON, "Expect ';' after loop condition.");
-        let mut increment = None;
-        if !self.check(TokenType::RIGHT_PAREN) {
-            increment = Some(self.expression().unwrap());
-        }
+        let increment = if !self.check(TokenType::RIGHT_PAREN) {
+            Some(self.expression().unwrap())
+        } else {
+            None
+        };
         self.consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
         let mut body = self.statement();
 
@@ -136,10 +138,11 @@ impl<'a> Parser<'a> {
         let condition = self.expression().unwrap();
         self.consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.");
         let then_branch = self.statement();
-        let mut else_branch = None;
-        if self.match_token(vec![TokenType::ELSE]) {
-            else_branch = Some(self.statement());
-        }
+        let else_branch = if self.match_token(vec![TokenType::ELSE]) {
+            Some(self.statement())
+        } else {
+            None
+        };
         If::new(token, condition, then_branch, else_branch)
     }
 
@@ -151,10 +154,11 @@ impl<'a> Parser<'a> {
 
     fn return_statement(&mut self) -> Stmt {
         let keyword = self.previous();
-        let mut value = Literal::new(Literals::NIL(None));
-        if !self.check(TokenType::SEMICOLON) {
-            value = self.expression().unwrap();
-        }
+        let value = if !self.check(TokenType::SEMICOLON) {
+            self.expression().unwrap()
+        } else {
+            Literal::new(Literals::NIL(None))
+        };
         self.consume(TokenType::SEMICOLON, "Expect ';' after return value.");
         Return::new(keyword, value)
     }
@@ -194,13 +198,10 @@ impl<'a> Parser<'a> {
         if self.match_token(vec![TokenType::EQUAL]) {
             let equals = self.previous();
             let value = self.assignment()?;
-            match expr {
-                Expr::Variable(e) => {
-                    let name = e.name;
-                    return Ok(Assign::new(name, value));
-                }
-                _ => {}
-            }
+            if let Expr::Variable(e) = expr {
+                let name = e.name;
+                return Ok(Assign::new(name, value));
+            };
             return Err(self
                 .error(&equals, "Invalid assignment target.")
                 .unwrap_err());
@@ -400,11 +401,8 @@ impl<'a> Parser<'a> {
         self.advance();
 
         while !self.is_at_end() {
-            match self.previous().token_type {
-                TokenType::SEMICOLON => {
-                    return;
-                }
-                _ => {}
+            if let TokenType::SEMICOLON = self.previous().token_type {
+                return;
             }
             match self.peek().token_type {
                 TokenType::CLASS

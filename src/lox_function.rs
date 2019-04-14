@@ -26,7 +26,9 @@ impl Callable for LoxFunction {
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> RTResult {
         let environment = Environment::from_env(self.closure.clone());
         for (i, param) in self.declaration.params.iter().enumerate() {
-            environment.borrow_mut().define(param.lexeme.clone(), arguments[i].clone());
+            environment
+                .borrow_mut()
+                .define(param.lexeme.clone(), arguments[i].clone());
         }
         // println!("func: {:?}\n", environment);
         match interpreter.execute_block(&self.declaration.body, environment) {

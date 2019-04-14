@@ -19,7 +19,7 @@ pub enum Object {
 impl Object {
     fn to_bool(&self) -> Result<bool, ()> {
         match self {
-            Object::BOOL(b) => Ok(b.clone()),
+            Object::BOOL(b) => Ok(*b),
             Object::NIL(_) => Ok(false),
             _ => Err(()),
         }
@@ -27,7 +27,7 @@ impl Object {
 }
 
 #[derive(Debug, Clone)]
-struct RuntimeError {
+pub struct RuntimeError {
     token: Token,
     message: String,
 }
@@ -94,22 +94,15 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    pub fn execute_block(
-        &mut self,
-        statements: &Vec<Stmt>,
-        environment: Closure,
-    ) -> RTResult {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Closure) -> RTResult {
         let env = self.environment.clone();
         self.environment = environment;
         // println!("current: {:?}\n", self.environment);
         // println!("statements: {:?}\n", statements);
         for statement in statements {
-            match self.execute(&statement) {
-                Err(e) => {
-                    self.environment = env;
-                    return Err(e)
-                },
-                _ => (),
+            if let Err(e) = self.execute(&statement) {
+                self.environment = env;
+                return Err(e);
             }
         }
         self.environment = env;
@@ -125,102 +118,55 @@ impl expr::Visitor<RTResult> for Interpreter {
 
         match expr.operator.token_type {
             TokenType::PLUS => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::NUMBER(l + r));
-                }
-                (Object::STRING(l), Object::STRING(r)) => {
-                    return Ok(Object::STRING(l + r.as_str()));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_STR_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l + r)),
+                (Object::STRING(l), Object::STRING(r)) => Ok(Object::STRING(l + r.as_str())),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_STR_ERROR)),
             },
             TokenType::MINUS => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::NUMBER(l - r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l - r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::SLASH => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::NUMBER(l / r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l / r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::STAR => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::NUMBER(l * r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l * r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::GREATER => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l > r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l > r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::GREATER_EQUAL => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l >= r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l >= r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::LESS => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l < r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l < r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::LESS_EQUAL => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l <= r));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l <= r)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::BANG_EQUAL => match (left, right) {
                 (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l != r));
+                    // Ok(Object::BOOL(l != r))
+                    Ok(Object::BOOL((l - r).abs() >= std::f64::EPSILON))
                 }
-                (Object::NIL(_), Object::NIL(_)) => {
-                    return Ok(Object::BOOL(false));
-                }
-                (Object::NIL(_), _) => {
-                    return Ok(Object::BOOL(true));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::NIL(_), Object::NIL(_)) => Ok(Object::BOOL(false)),
+                (Object::NIL(_), _) => Ok(Object::BOOL(true)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::EQUAL_EQUAL => match (left, right) {
                 (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    return Ok(Object::BOOL(l == r));
+                    Ok(Object::BOOL((l - r).abs() < std::f64::EPSILON))
                 }
-                (Object::STRING(l), Object::STRING(r)) => {
-                    return Ok(Object::BOOL(l == r));
-                }
-                (Object::NIL(_), Object::NIL(_)) => {
-                    return Ok(Object::BOOL(true));
-                }
-                (Object::NIL(_), _) => {
-                    return Ok(Object::BOOL(false));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                (Object::STRING(l), Object::STRING(r)) => Ok(Object::BOOL(l == r)),
+                (Object::NIL(_), Object::NIL(_)) => Ok(Object::BOOL(true)),
+                (Object::NIL(_), _) => Ok(Object::BOOL(false)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             _ => {
                 panic!();
@@ -244,18 +190,14 @@ impl expr::Visitor<RTResult> for Interpreter {
 
         match expr.operator.token_type {
             TokenType::MINUS => match right {
-                Object::NUMBER(n) => {
-                    return Ok(Object::NUMBER(-n));
-                }
-                _ => {
-                    return Err(RuntimeException::error(&expr.operator, NUM_ERROR));
-                }
+                Object::NUMBER(n) => Ok(Object::NUMBER(-n)),
+                _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::BANG => {
                 let b = right
                     .to_bool()
                     .map_err(|_| RuntimeException::error(&expr.operator, BOOL_ERROR))?;
-                return Ok(Object::BOOL(!b));
+                Ok(Object::BOOL(!b))
             }
             _ => {
                 panic!();
@@ -267,7 +209,9 @@ impl expr::Visitor<RTResult> for Interpreter {
     }
     fn visit_assign_expr(&mut self, expr: &Assign) -> RTResult {
         let value = self.evalute(&expr.value)?;
-        self.environment.borrow_mut().assign(expr.name.clone(), value)
+        self.environment
+            .borrow_mut()
+            .assign(expr.name.clone(), value)
     }
     fn visit_logical_expr(&mut self, expr: &Logical) -> RTResult {
         let left = self.evalute(&expr.left)?;
@@ -330,7 +274,9 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_var_stmt(&mut self, stmt: &Var) -> RTResult {
         let obj = self.evalute(&stmt.initializer)?;
-        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), obj);
+        self.environment
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), obj);
         Ok(Object::NIL(None))
     }
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
@@ -378,7 +324,9 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
         let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
-        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), function);
+        self.environment
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), function);
         Ok(Object::NIL(None))
     }
     fn visit_return_stmt(&mut self, stmt: &Return) -> RTResult {

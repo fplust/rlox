@@ -1,8 +1,8 @@
 use crate::interpreter::{Object, RTResult, RuntimeException};
 use crate::token::Token;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 pub type Closure = Rc<RefCell<Environment>>;
 
@@ -42,7 +42,7 @@ impl Environment {
             Some(v) => Ok(v.clone()),
             None => {
                 if self.enclosing.is_some() {
-                    return self.enclosing.as_ref().unwrap().borrow().get(name);
+                    self.enclosing.as_ref().unwrap().borrow().get(name)
                 } else {
                     Err(RuntimeException::error(
                         &name,
@@ -57,17 +57,17 @@ impl Environment {
         if self.values.contains_key(&name.lexeme) {
             self.values.insert(name.lexeme, value.clone());
             Ok(value)
+        } else if self.enclosing.is_some() {
+            self.enclosing
+                .as_mut()
+                .unwrap()
+                .borrow_mut()
+                .assign(name, value)
         } else {
-            if self.enclosing.is_some() {
-                let r = self.enclosing.as_mut().unwrap().borrow_mut().assign(name, value);
-                // println!("assign: {:?}\n", self);
-                return r;
-            } else {
-                Err(RuntimeException::error(
-                    &name,
-                    format!("Undefined variable '{}'.", name.lexeme).as_str(),
-                ))
-            }
+            Err(RuntimeException::error(
+                &name,
+                format!("Undefined variable '{}'.", name.lexeme).as_str(),
+            ))
         }
     }
 }
