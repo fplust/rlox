@@ -51,7 +51,13 @@ impl<'a> Scanner<'a> {
             self.start = self.current;
             self.scan_token();
         }
-        let eof = Token::new(self.tokens.len(), TokenType::EOF, String::from(""), None, self.line);
+        let eof = Token::new(
+            self.tokens.len(),
+            TokenType::EOF,
+            String::from(""),
+            None,
+            self.line,
+        );
         self.tokens.push(eof);
         &self.tokens
     }
@@ -128,8 +134,13 @@ impl<'a> Scanner<'a> {
     }
     fn add_token(&mut self, token_type: TokenType, literal: Option<Literals>) {
         let text: String = self.get_substr(self.start, self.current);
-        self.tokens
-            .push(Token::new(self.tokens.len(), token_type, text, literal, self.line));
+        self.tokens.push(Token::new(
+            self.tokens.len(),
+            token_type,
+            text,
+            literal,
+            self.line,
+        ));
     }
     fn is_match(&mut self, expected: char) -> bool {
         if self.is_at_end() {

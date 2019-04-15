@@ -61,14 +61,26 @@ impl Environment {
             // println!("{:?}", self.values);
             Ok(self.values.get(name).unwrap().clone())
         } else {
-            Ok(self.ancestor(distance).borrow().values.get(name).unwrap().clone())
+            Ok(self
+                .ancestor(distance)
+                .borrow()
+                .values
+                .get(name)
+                .unwrap()
+                .clone())
         }
     }
 
     fn ancestor(&self, distance: usize) -> Closure {
         let mut environment = self.enclosing.as_ref().unwrap().clone();
         for _ in 1..distance {
-            environment = environment.clone().borrow().enclosing.as_ref().unwrap().clone();
+            environment = environment
+                .clone()
+                .borrow()
+                .enclosing
+                .as_ref()
+                .unwrap()
+                .clone();
         }
         environment
     }
@@ -95,7 +107,10 @@ impl Environment {
         if distance == 0 {
             self.values.insert(name.lexeme.clone(), value.clone());
         } else {
-            self.ancestor(distance).borrow_mut().values.insert(name.lexeme.clone(), value.clone());
+            self.ancestor(distance)
+                .borrow_mut()
+                .values
+                .insert(name.lexeme.clone(), value.clone());
         }
         Ok(value)
     }

@@ -1,12 +1,11 @@
-use crate::interpreter::Interpreter;
-use std::collections::HashMap;
-use crate::token::Token;
 use crate::error::parse_error;
 use crate::expr;
 use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::interpreter::Interpreter;
 use crate::stmt;
 use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
-
+use crate::token::Token;
+use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
 enum FunctionType {
@@ -53,9 +52,12 @@ impl<'a> Resolver<'a> {
     fn declare(&mut self, name: &Token) {
         if !self.scopes.is_empty() {
             let len = self.scopes.len();
-            let scope = self.scopes.get_mut(len-1).unwrap();
+            let scope = self.scopes.get_mut(len - 1).unwrap();
             if scope.contains_key(&name.lexeme) {
-                parse_error(name, "Variable with this name already declared in this scope.");
+                parse_error(
+                    name,
+                    "Variable with this name already declared in this scope.",
+                );
                 panic!();
             }
             scope.insert(name.lexeme.clone(), false);
@@ -65,7 +67,7 @@ impl<'a> Resolver<'a> {
     fn define(&mut self, name: &Token) {
         if !self.scopes.is_empty() {
             let len = self.scopes.len();
-            let scope = self.scopes.get_mut(len-1).unwrap();
+            let scope = self.scopes.get_mut(len - 1).unwrap();
             scope.insert(name.lexeme.clone(), true);
         }
     }
@@ -96,8 +98,19 @@ impl<'a> Resolver<'a> {
 impl<'a> expr::Visitor<()> for Resolver<'a> {
     fn visit_variable_expr(&mut self, expr: &Variable) {
         // println!("{:?} {:?}", self.scopes, expr);
-        if !self.scopes.is_empty() && !*self.scopes.last().unwrap().get(&expr.name.lexeme).or(Some(&true)).unwrap() {
-            parse_error(&expr.name, "Cannot read local variable in its own initializer.");
+        if !self.scopes.is_empty()
+            && !*self
+                .scopes
+                .last()
+                .unwrap()
+                .get(&expr.name.lexeme)
+                .or(Some(&true))
+                .unwrap()
+        {
+            parse_error(
+                &expr.name,
+                "Cannot read local variable in its own initializer.",
+            );
             panic!();
         }
         self.resolve_local(&expr.name);
@@ -115,8 +128,7 @@ impl<'a> expr::Visitor<()> for Resolver<'a> {
     fn visit_grouping_expr(&mut self, expr: &Grouping) {
         self.resolve_e(&expr.expression);
     }
-    fn visit_literal_expr(&self, _expr: &Literal) {
-    }
+    fn visit_literal_expr(&self, _expr: &Literal) {}
     fn visit_logical_expr(&mut self, expr: &Logical) {
         self.resolve_e(&expr.left);
         self.resolve_e(&expr.right);

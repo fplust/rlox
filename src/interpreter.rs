@@ -122,14 +122,12 @@ impl Interpreter {
     }
 
     fn lookup_variable(&self, name: &Token) -> RTResult {
+        // use std::rc::Rc;
+        // println!("{} ref count: {}, weak count: {}", name.lexeme, Rc::strong_count(&self.globals), Rc::weak_count(&self.globals));
         let distance = self.locals.get(&name.id);
         match distance {
-            Some(d) => {
-                self.environment.borrow().get_at(*d, &name.lexeme)
-            },
-            None => {
-                self.globals.borrow().get(&name)
-            }
+            Some(d) => self.environment.borrow().get_at(*d, &name.lexeme),
+            None => self.globals.borrow().get(&name),
         }
     }
 }
@@ -235,12 +233,11 @@ impl expr::Visitor<RTResult> for Interpreter {
         let value = self.evalute(&expr.value)?;
         let distance = self.locals.get(&expr.name.id);
         match distance {
-            Some(d) => {
-                self.environment.borrow_mut().assign_at(*d, &expr.name, value)
-            },
-            None => {
-                self.globals.borrow_mut().assign(&expr.name, value)
-            }
+            Some(d) => self
+                .environment
+                .borrow_mut()
+                .assign_at(*d, &expr.name, value),
+            None => self.globals.borrow_mut().assign(&expr.name, value),
         }
         // self.environment
         //     .borrow_mut()
