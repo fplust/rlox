@@ -56,6 +56,7 @@ impl<'a> Resolver<'a> {
             let scope = self.scopes.get_mut(len-1).unwrap();
             if scope.contains_key(&name.lexeme) {
                 parse_error(name, "Variable with this name already declared in this scope.");
+                panic!();
             }
             scope.insert(name.lexeme.clone(), false);
         }
@@ -95,8 +96,9 @@ impl<'a> Resolver<'a> {
 impl<'a> expr::Visitor<()> for Resolver<'a> {
     fn visit_variable_expr(&mut self, expr: &Variable) {
         // println!("{:?} {:?}", self.scopes, expr);
-        if !self.scopes.is_empty() && !*self.scopes.last().unwrap().get(&expr.name.lexeme).or(Some(&false)).unwrap() {
+        if !self.scopes.is_empty() && !*self.scopes.last().unwrap().get(&expr.name.lexeme).or(Some(&true)).unwrap() {
             parse_error(&expr.name, "Cannot read local variable in its own initializer.");
+            panic!();
         }
         self.resolve_local(&expr.name);
     }

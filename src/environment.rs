@@ -57,9 +57,10 @@ impl Environment {
         // println!("{} distance: {}", name, distance);
         // println!("{:?}", self);
         if distance == 0 {
+            // 可能是bug, 打印 hashmap 出错
+            // println!("{:?}", self.values);
             Ok(self.values.get(name).unwrap().clone())
         } else {
-            // println!("{:?}", self.ancestor(distance).borrow());
             Ok(self.ancestor(distance).borrow().values.get(name).unwrap().clone())
         }
     }
