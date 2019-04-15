@@ -3,6 +3,7 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct Token {
+    pub id: usize,
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Option<Literals>,
@@ -11,12 +12,14 @@ pub struct Token {
 
 impl Token {
     pub fn new(
+        id: usize,
         token_type: TokenType,
         lexeme: String,
         literal: Option<Literals>,
         line: u64,
     ) -> Token {
         Token {
+            id,
             token_type,
             lexeme,
             literal,

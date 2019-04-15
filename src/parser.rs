@@ -1,4 +1,4 @@
-use crate::error::report;
+use crate::error::parse_error;
 use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
 use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
@@ -385,15 +385,7 @@ impl<'a> Parser<'a> {
     }
 
     fn error(&self, token: &Token, message: &str) -> Result<(), String> {
-        match token.token_type {
-            TokenType::EOF => {
-                report(token.line, " at end", message);
-            }
-            _ => {
-                let w = format!(" at '{}'", token.lexeme);
-                report(token.line, &w[..], message);
-            }
-        }
+        parse_error(token, message);
         Err(String::from(message))
     }
 

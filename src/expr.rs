@@ -149,7 +149,7 @@ pub trait Visitor<T> {
     fn visit_grouping_expr(&mut self, expr: &Grouping) -> T;
     fn visit_literal_expr(&self, expr: &Literal) -> T;
     fn visit_unary_expr(&mut self, expr: &Unary) -> T;
-    fn visit_variable_expr(&self, expr: &Variable) -> T;
+    fn visit_variable_expr(&mut self, expr: &Variable) -> T;
     fn visit_assign_expr(&mut self, expr: &Assign) -> T;
     fn visit_logical_expr(&mut self, expr: &Logical) -> T;
     fn visit_call_expr(&mut self, expr: &Call) -> T;

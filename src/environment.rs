@@ -53,9 +53,28 @@ impl Environment {
         }
     }
 
-    pub fn assign(&mut self, name: Token, value: Object) -> RTResult {
+    pub fn get_at(&self, distance: usize, name: &String) -> RTResult {
+        // println!("{} distance: {}", name, distance);
+        // println!("{:?}", self);
+        if distance == 0 {
+            Ok(self.values.get(name).unwrap().clone())
+        } else {
+            // println!("{:?}", self.ancestor(distance).borrow());
+            Ok(self.ancestor(distance).borrow().values.get(name).unwrap().clone())
+        }
+    }
+
+    fn ancestor(&self, distance: usize) -> Closure {
+        let mut environment = self.enclosing.as_ref().unwrap().clone();
+        for _ in 1..distance {
+            environment = environment.clone().borrow().enclosing.as_ref().unwrap().clone();
+        }
+        environment
+    }
+
+    pub fn assign(&mut self, name: &Token, value: Object) -> RTResult {
         if self.values.contains_key(&name.lexeme) {
-            self.values.insert(name.lexeme, value.clone());
+            self.values.insert(name.lexeme.clone(), value.clone());
             Ok(value)
         } else if self.enclosing.is_some() {
             self.enclosing
@@ -69,5 +88,14 @@ impl Environment {
                 format!("Undefined variable '{}'.", name.lexeme).as_str(),
             ))
         }
+    }
+
+    pub fn assign_at(&mut self, distance: usize, name: &Token, value: Object) -> RTResult {
+        if distance == 0 {
+            self.values.insert(name.lexeme.clone(), value.clone());
+        } else {
+            self.ancestor(distance).borrow_mut().values.insert(name.lexeme.clone(), value.clone());
+        }
+        Ok(value)
     }
 }

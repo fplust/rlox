@@ -9,10 +9,12 @@ mod environment;
 mod interpreter;
 mod lox_function;
 mod stmt;
+mod resolver;
 // use crate::ast_printer::AstPrinter;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
+use crate::resolver::Resolver;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -67,5 +69,7 @@ fn run(source: &String) {
     // let printer = AstPrinter {};
     // println!("{}", printer.print(&expr));
     let mut interpreter = Interpreter::new();
+    let mut resolver = Resolver::new(&mut interpreter);
+    resolver.resolves(&statements);
     interpreter.interpret(statements);
 }

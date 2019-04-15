@@ -6,6 +6,7 @@ use crate::stmt;
 use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -74,13 +75,19 @@ static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
 static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
-    pub environment: Closure,
+    pub globals: Closure,
+    environment: Closure,
+    locals: HashMap<usize, usize>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let globals = Environment::new();
+        let env = globals.clone();
         Interpreter {
-            environment: Environment::new(),
+            globals,
+            environment: env,
+            locals: HashMap::new(),
         }
     }
     pub fn interpret(&mut self, statements: Vec<Stmt>) {
@@ -108,6 +115,22 @@ impl Interpreter {
         self.environment = env;
         // println!("up: {:?}\n", self.environment);
         Ok(Object::NIL(None))
+    }
+
+    pub fn resolve(&mut self, token_id: usize, depth: usize) {
+        self.locals.insert(token_id, depth);
+    }
+
+    fn lookup_variable(&self, name: &Token) -> RTResult {
+        let distance = self.locals.get(&name.id);
+        match distance {
+            Some(d) => {
+                self.environment.borrow().get_at(*d, &name.lexeme)
+            },
+            None => {
+                self.globals.borrow().get(&name)
+            }
+        }
     }
 }
 
@@ -204,14 +227,24 @@ impl expr::Visitor<RTResult> for Interpreter {
             }
         }
     }
-    fn visit_variable_expr(&self, expr: &Variable) -> RTResult {
-        self.environment.borrow().get(&expr.name)
+    fn visit_variable_expr(&mut self, expr: &Variable) -> RTResult {
+        // self.environment.borrow().get(&expr.name)
+        self.lookup_variable(&expr.name)
     }
     fn visit_assign_expr(&mut self, expr: &Assign) -> RTResult {
         let value = self.evalute(&expr.value)?;
-        self.environment
-            .borrow_mut()
-            .assign(expr.name.clone(), value)
+        let distance = self.locals.get(&expr.name.id);
+        match distance {
+            Some(d) => {
+                self.environment.borrow_mut().assign_at(*d, &expr.name, value)
+            },
+            None => {
+                self.globals.borrow_mut().assign(&expr.name, value)
+            }
+        }
+        // self.environment
+        //     .borrow_mut()
+        //     .assign(expr.name.clone(), value)
     }
     fn visit_logical_expr(&mut self, expr: &Logical) -> RTResult {
         let left = self.evalute(&expr.left)?;
