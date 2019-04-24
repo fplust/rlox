@@ -13,6 +13,7 @@ pub enum Stmt {
     // For(For),
     Function(Function),
     Return(Return),
+    Class(Class),
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +63,12 @@ pub struct Function {
 pub struct Return {
     pub keyword: Token,
     pub value: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Class {
+    pub name: Token,
+    pub methods: Vec<Function>,
 }
 
 impl Expression {
@@ -136,6 +143,15 @@ impl Return {
     }
 }
 
+impl Class {
+    pub fn new(name: Token, methods: Vec<Function>) -> Stmt {
+        Stmt::Class(Class {
+            name,
+            methods,
+        })
+    }
+}
+
 /*
 impl For {
     pub fn new(token: Token, initializer: Option<Stmt>, condition: Option<Expr>, increment: Option<Expr>, body: Stmt) -> Stmt {
@@ -161,6 +177,7 @@ impl Stmt {
             Stmt::While(e) => visitor.visit_while_stmt(e),
             Stmt::Function(e) => visitor.visit_function_stmt(e),
             Stmt::Return(e) => visitor.visit_return_stmt(e),
+            Stmt::Class(e) => visitor.visit_class_stmt(e),
         }
     }
 }
@@ -174,4 +191,5 @@ pub trait Visitor<T> {
     fn visit_while_stmt(&mut self, stmt: &While) -> T;
     fn visit_function_stmt(&mut self, stmt: &Function) -> T;
     fn visit_return_stmt(&mut self, stmt: &Return) -> T;
+    fn visit_class_stmt(&mut self, stmt: &Class) -> T;
 }

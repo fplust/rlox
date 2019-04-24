@@ -1,6 +1,6 @@
 use crate::error::parse_error;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::mem;
@@ -24,6 +24,9 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> Stmt {
+        if self.match_token(vec![TokenType::CLASS]) {
+            return self.class_declaration();
+        }
         if self.match_token(vec![TokenType::FUN]) {
             return self.function("function");
         }
@@ -31,6 +34,30 @@ impl<'a> Parser<'a> {
             return self.var_declaration();
         }
         self.statement()
+    }
+
+    fn class_declaration(&mut self) -> Stmt {
+        let name = self.consume(
+            TokenType::IDENTIFIER,
+            "Expect class name."
+        );
+        self.consume(
+            TokenType::LEFT_BRACE,
+            "Expect '{' before class body."
+        );
+        let mut methods: Vec<Function> = Vec::new();
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            if let Stmt::Function(f) = self.function("methods") {
+                methods.push(f);
+            } else {
+                unreachable!()
+            }
+        }
+        self.consume(
+            TokenType::RIGHT_BRACE,
+            "Expect '}' after class body."
+        );
+        Class::new(name, methods)
     }
 
     fn function(&mut self, kind: &str) -> Stmt {
@@ -288,6 +315,9 @@ impl<'a> Parser<'a> {
         loop {
             if self.match_token(vec![TokenType::LEFT_PAREN]) {
                 expr = self.finish_call(expr)?;
+            } else if self.match_token(vec![TokenType::DOT]) {
+                let name = self.consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
+                expr = Get::new(expr, name);
             } else {
                 break;
             }

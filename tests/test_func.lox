@@ -4,13 +4,12 @@ fun sayHi(first, last) {
 
 sayHi("Dear", "Reader");
 
-fun fibonacci(n) {
-  if (n <= 1) return n;
-  return fibonacci(n - 2) + fibonacci(n - 1);
-}
-
-for (var i = 0; i < 20; i = i + 1) {
-  print fibonacci(i);
+fun make_fibonacci(m) {
+    fun fibonacci(n) {
+      if (n <= m) return n;
+      return fibonacci(n - m - 1) + fibonacci(n - m);
+    }
+    return fibonacci;
 }
 
 fun makePoint(x, y) {
@@ -26,3 +25,6 @@ fun makePoint(x, y) {
 var point = makePoint(2, 3);
 print point("x"); // "2".
 print point("y"); // "3".
+
+var fibonacci = make_fibonacci(2);
+print fibonacci(20);

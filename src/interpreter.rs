@@ -1,31 +1,14 @@
 use crate::environment::{Closure, Environment};
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
 use crate::lox_function::{Callable, LoxFunction};
+use crate::lox_class::LoxClass;
+use crate::object::Object;
 use crate::stmt;
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::collections::HashMap;
-
-#[derive(Debug, Clone)]
-pub enum Object {
-    STRING(String),
-    NUMBER(f64),
-    BOOL(bool),
-    NIL(Option<()>),
-    Function(LoxFunction),
-}
-
-impl Object {
-    fn to_bool(&self) -> Result<bool, ()> {
-        match self {
-            Object::BOOL(b) => Ok(*b),
-            Object::NIL(_) => Ok(false),
-            _ => Err(()),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct RuntimeError {
@@ -284,12 +267,39 @@ impl expr::Visitor<RTResult> for Interpreter {
                 } else {
                     func.call(self, arguments)
                 }
-            }
+            },
+            Object::Class(class) => {
+                if arguments.len() != class.arity() {
+                    Err(RuntimeException::error(
+                        &expr.paren,
+                        format!(
+                            "Expected {} arguments but got {}.",
+                            class.arity(),
+                            arguments.len(),
+                        )
+                        .as_str(),
+                    ))
+                } else {
+                    class.call(self, arguments)
+                }
+            },
             _ => Err(RuntimeException::error(
                 &expr.paren,
                 "Can only call functions and classes.",
             )),
         }
+    }
+    fn visit_get_expr(&mut self, expr: &Get) -> RTResult {
+        unimplemented!()
+        // let object = self.evalute(&expr.object);
+        // if let Object::Instance(i) = object {
+        //     Ok(i.get(&expr.name))
+        // } else {
+        //     Err(RuntimeException::error(
+        //             &expr.name,
+        //             "Only instances have properties."
+        //             ))
+        // }
     }
 }
 
@@ -312,7 +322,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
         self.execute_block(
             &stmt.statements,
-            Environment::from_env(self.environment.clone()),
+            Environment::from_env(&self.environment),
         )
     }
     fn visit_if_stmt(&mut self, stmt: &If) -> RTResult {
@@ -353,7 +363,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
         }
     }
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
-        let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
+        let function = Object::Function(LoxFunction::new(stmt.clone(), &self.environment));
         self.environment
             .borrow_mut()
             .define(stmt.name.lexeme.clone(), function);
@@ -362,6 +372,11 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_return_stmt(&mut self, stmt: &Return) -> RTResult {
         let obj = self.evalute(&stmt.value)?;
         Err(RuntimeException::return_v(obj))
+    }
+    fn visit_class_stmt(&mut self, stmt: &Class) -> RTResult {
+        let class = Object::Class(LoxClass::new(stmt.name.lexeme.clone()));
+        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), class);
+        Ok(Object::NIL(None))
     }
 }
 

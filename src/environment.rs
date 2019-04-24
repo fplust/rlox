@@ -1,15 +1,18 @@
-use crate::interpreter::{Object, RTResult, RuntimeException};
+use crate::object::Object;
+use crate::interpreter::{RTResult, RuntimeException};
 use crate::token::Token;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+// use std::borrow::{Borrow, BorrowMut};
 
 pub type Closure = Rc<RefCell<Environment>>;
+pub type WeakClosure = Weak<RefCell<Environment>>;
 
 #[derive(Debug, Clone)]
 pub struct Environment {
     // TODO: 重构改为引用
-    enclosing: Option<Closure>,
+    enclosing: Option<WeakClosure>,
     values: HashMap<String, Object>,
 }
 
@@ -20,9 +23,9 @@ impl Environment {
             values: HashMap::new(),
         }))
     }
-    pub fn from_env(enclosing: Closure) -> Closure {
+    pub fn from_env(enclosing: &Closure) -> Closure {
         Rc::new(RefCell::new(Environment {
-            enclosing: Some(enclosing),
+            enclosing: Some(Rc::downgrade(enclosing)),
             values: HashMap::new(),
         }))
     }
@@ -42,7 +45,7 @@ impl Environment {
             Some(v) => Ok(v.clone()),
             None => {
                 if self.enclosing.is_some() {
-                    self.enclosing.as_ref().unwrap().borrow().get(name)
+                    self.enclosing.as_ref().unwrap().upgrade().unwrap().borrow().get(name)
                 } else {
                     Err(RuntimeException::error(
                         &name,
@@ -72,15 +75,13 @@ impl Environment {
     }
 
     fn ancestor(&self, distance: usize) -> Closure {
-        let mut environment = self.enclosing.as_ref().unwrap().clone();
+        let mut environment = self.enclosing.as_ref().unwrap().upgrade().unwrap();
         for _ in 1..distance {
-            environment = environment
-                .clone()
+            environment = environment.clone()
                 .borrow()
-                .enclosing
-                .as_ref()
+                .enclosing.as_ref()
                 .unwrap()
-                .clone();
+                .upgrade().unwrap();
         }
         environment
     }
@@ -92,7 +93,7 @@ impl Environment {
         } else if self.enclosing.is_some() {
             self.enclosing
                 .as_mut()
-                .unwrap()
+                .unwrap().upgrade().unwrap()
                 .borrow_mut()
                 .assign(name, value)
         } else {

@@ -11,6 +11,7 @@ pub enum Expr {
     Assign(Assign),
     Logical(Logical),
     Call(Call),
+    Get(Get),
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,12 @@ pub struct Call {
     pub callee: Box<Expr>,
     pub paren: Token,
     pub arguments: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Get {
+    pub object: Box<Expr>,
+    pub name: Token,
 }
 
 impl Binary {
@@ -129,6 +136,15 @@ impl Call {
     }
 }
 
+impl Get {
+    pub fn new(object: Expr, name: Token) -> Expr {
+        Expr::Get(Get {
+            object: Box::new(object),
+            name,
+        })
+    }
+}
+
 impl Expr {
     pub fn accept<T, V: Visitor<T>>(&self, visitor: &mut V) -> T {
         match self {
@@ -140,6 +156,7 @@ impl Expr {
             Expr::Assign(e) => visitor.visit_assign_expr(e),
             Expr::Logical(e) => visitor.visit_logical_expr(e),
             Expr::Call(e) => visitor.visit_call_expr(e),
+            Expr::Get(e) => visitor.visit_get_expr(e),
         }
     }
 }
@@ -153,4 +170,5 @@ pub trait Visitor<T> {
     fn visit_assign_expr(&mut self, expr: &Assign) -> T;
     fn visit_logical_expr(&mut self, expr: &Logical) -> T;
     fn visit_call_expr(&mut self, expr: &Call) -> T;
+    fn visit_get_expr(&mut self, expr: &Get) -> T;
 }

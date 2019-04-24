@@ -1,9 +1,9 @@
 use crate::error::parse_error;
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
 use crate::interpreter::Interpreter;
 use crate::stmt;
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While};
+use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
 use crate::token::Token;
 use std::collections::HashMap;
 
@@ -140,6 +140,9 @@ impl<'a> expr::Visitor<()> for Resolver<'a> {
         self.resolve_e(&expr.value);
         self.resolve_local(&expr.name);
     }
+    fn visit_get_expr(&mut self, expr: &Get) {
+        self.resolve_e(&expr.object);
+    }
 }
 
 impl<'a> stmt::Visitor<()> for Resolver<'a> {
@@ -183,5 +186,9 @@ impl<'a> stmt::Visitor<()> for Resolver<'a> {
     fn visit_while_stmt(&mut self, stmt: &While) {
         self.resolve_e(&stmt.condition);
         self.resolve_s(&stmt.body);
+    }
+    fn visit_class_stmt(&mut self, stmt: &Class) {
+        self.declare(&stmt.name);
+        self.define(&stmt.name);
     }
 }
