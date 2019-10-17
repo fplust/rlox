@@ -1,8 +1,9 @@
 use crate::lox_function::LoxFunction;
 use crate::lox_class::LoxClass;
 use crate::lox_instance::LoxInstance;
+use gc_derive::{Trace, Finalize};
 
-#[derive(Debug, Clone)]
+#[derive(Trace, Finalize, Debug, Clone)]
 pub enum Object {
     STRING(String),
     NUMBER(f64),

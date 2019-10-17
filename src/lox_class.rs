@@ -2,8 +2,9 @@ use crate::object::Object;
 use crate::interpreter::{Interpreter, RTResult};
 use crate::lox_function::Callable;
 use crate::lox_instance::LoxInstance;
+use gc_derive::{Trace, Finalize};
 
-#[derive(Debug, Clone)]
+#[derive(Trace, Finalize, Debug, Clone)]
 pub struct LoxClass {
     name: String,
 }

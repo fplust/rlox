@@ -1,8 +1,9 @@
 use crate::lox_class::LoxClass;
 use std::collections::HashMap;
 use crate::object::Object;
+use gc_derive::{Trace, Finalize};
 
-#[derive(Debug, Clone)]
+#[derive(Trace, Finalize, Debug, Clone)]
 pub struct LoxInstance {
     class: LoxClass,
     fields: HashMap<String, Object>,

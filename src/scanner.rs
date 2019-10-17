@@ -117,13 +117,13 @@ impl<'a> Scanner<'a> {
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string(),
-            '0'...'9' => self.number(),
+            '0'..='9' => self.number(),
             'o' => {
                 if self.is_match('r') {
                     self.add_token(TokenType::OR, None);
                 }
             }
-            'a'...'z' | 'A'...'Z' | '_' => self.identifier(),
+            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
             _ => error(self.line, "Unexpected character."),
         }
     }
@@ -155,13 +155,13 @@ impl<'a> Scanner<'a> {
 
     fn is_digit(&self, c: char) -> bool {
         match c {
-            '0'...'9' => true,
+            '0'..='9' => true,
             _ => false,
         }
     }
     fn is_alpha(&self, c: char) -> bool {
         match c {
-            'a'...'z' | 'A'...'Z' | '_' => true,
+            'a'..='z' | 'A'..='Z' | '_' => true,
             _ => false,
         }
     }

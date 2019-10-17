@@ -1,33 +1,40 @@
 use crate::object::Object;
 use crate::interpreter::{RTResult, RuntimeException};
 use crate::token::Token;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 // use std::borrow::{Borrow, BorrowMut};
+use gc::{Gc, GcCell};
+use gc_derive::{Trace, Finalize};
 
-pub type Closure = Rc<RefCell<Environment>>;
-pub type WeakClosure = Weak<RefCell<Environment>>;
 
-#[derive(Debug, Clone)]
+#[derive(Trace, Finalize, Debug)]
 pub struct Environment {
     // TODO: 重构改为引用
-    enclosing: Option<WeakClosure>,
+    enclosing: Option<GcEnv>,
     values: HashMap<String, Object>,
 }
 
+pub type GcEnv = Gc<GcCell<Environment>>;
+
 impl Environment {
-    pub fn new() -> Closure {
-        Rc::new(RefCell::new(Environment {
+    pub fn new() -> GcEnv {
+        Gc::new(GcCell::new(Environment {
             enclosing: None,
             values: HashMap::new(),
         }))
     }
-    pub fn from_env(enclosing: &Closure) -> Closure {
-        Rc::new(RefCell::new(Environment {
-            enclosing: Some(Rc::downgrade(enclosing)),
+    pub fn from_env(env: GcEnv) -> GcEnv {
+        Gc::new(GcCell::new(Environment {
+            enclosing: Some(env),
             values: HashMap::new(),
         }))
+    }
+
+    pub fn get_enclosing(&self) -> Option<GcEnv> {
+        match &self.enclosing {
+            Some(env) => Some(env.clone()),
+            None => None
+        }
     }
 
     /*
@@ -45,7 +52,7 @@ impl Environment {
             Some(v) => Ok(v.clone()),
             None => {
                 if self.enclosing.is_some() {
-                    self.enclosing.as_ref().unwrap().upgrade().unwrap().borrow().get(name)
+                    self.enclosing.as_ref().unwrap().borrow().get(name)
                 } else {
                     Err(RuntimeException::error(
                         &name,
@@ -74,14 +81,15 @@ impl Environment {
         }
     }
 
-    fn ancestor(&self, distance: usize) -> Closure {
-        let mut environment = self.enclosing.as_ref().unwrap().upgrade().unwrap();
+    fn ancestor(&self, distance: usize) -> GcEnv {
+        let mut environment = self.enclosing.as_ref().unwrap().clone();
         for _ in 1..distance {
-            environment = environment.clone()
+            environment = environment
+                .clone()
                 .borrow()
                 .enclosing.as_ref()
                 .unwrap()
-                .upgrade().unwrap();
+                .clone();
         }
         environment
     }
@@ -90,10 +98,10 @@ impl Environment {
         if self.values.contains_key(&name.lexeme) {
             self.values.insert(name.lexeme.clone(), value.clone());
             Ok(value)
-        } else if self.enclosing.is_some() {
+        }  else if self.enclosing.is_some() {
             self.enclosing
                 .as_mut()
-                .unwrap().upgrade().unwrap()
+                .unwrap()
                 .borrow_mut()
                 .assign(name, value)
         } else {

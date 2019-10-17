@@ -1,51 +1,52 @@
 use crate::object::Object;
-use crate::environment::{Closure, WeakClosure, Environment};
+use crate::environment::{GcEnv, Environment};
 use crate::interpreter::{Interpreter, RTResult, RuntimeException};
 use crate::stmt::Function;
-use std::rc::Rc;
+use gc_derive::{Trace, Finalize};
 
 pub trait Callable {
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> RTResult;
     fn arity(&self) -> usize;
 }
 
-#[derive(Debug, Clone)]
-enum FuncClosure {
-    STRONG(Closure),
-    WEAK(WeakClosure),
-}
+// #[derive(Debug, Clone)]
+// enum FuncClosure {
+//     STRONG(Closure),
+//     WEAK(WeakClosure),
+// }
 
-impl FuncClosure {
-    pub fn to_strong(&self) -> Closure {
-        match self {
-            FuncClosure::STRONG(e) => e.clone(),
-            FuncClosure::WEAK(e) => e.upgrade().unwrap(),
-        }
-    }
-}
+// impl FuncClosure {
+//     pub fn to_strong(&self) -> Closure {
+//         match self {
+//             FuncClosure::STRONG(e) => e.clone(),
+//             FuncClosure::WEAK(e) => e.upgrade().unwrap(),
+//         }
+//     }
+// }
 
 
-#[derive(Debug)]
+#[derive(Trace, Finalize, Debug, Clone)]
 pub struct LoxFunction {
-    declaration: Function,
-    closure: FuncClosure,
+    #[unsafe_ignore_trace]
+    declaration: Function,  // 该项不会含有gc管理的对象
+    closure: GcEnv,
 }
 
-impl Clone for LoxFunction {
-    fn clone(&self) -> Self {
-        let closure = self.closure.to_strong();
-        LoxFunction {
-            declaration: self.declaration.clone(),
-            closure: FuncClosure::STRONG(closure)
-        }
-    }
-}
+// impl Clone for LoxFunction {
+//     fn clone(&self) -> Self {
+//         let closure = self.closure.to_strong();
+//         LoxFunction {
+//             declaration: self.declaration.clone(),
+//             closure: FuncClosure::STRONG(closure)
+//         }
+//     }
+// }
 
 impl LoxFunction {
-    pub fn new(declaration: Function, closure: &Closure) -> LoxFunction {
+    pub fn new(declaration: Function, env: GcEnv) -> LoxFunction {
         LoxFunction {
             declaration,
-            closure: FuncClosure::WEAK(Rc::downgrade(closure)),
+            closure: env,
         }
     }
 }
@@ -58,11 +59,9 @@ impl LoxFunction {
 
 impl Callable for LoxFunction {
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> RTResult {
-        let environment = Environment::from_env(&self.closure.to_strong());
+        let environment = Environment::from_env(self.closure.clone());
         for (i, param) in self.declaration.params.iter().enumerate() {
-            environment
-                .borrow_mut()
-                .define(param.lexeme.clone(), arguments[i].clone());
+            environment.borrow_mut().define(param.lexeme.clone(), arguments[i].clone());
         }
         // println!("func: {:?}\n", environment);
         match interpreter.execute_block(&self.declaration.body, environment) {

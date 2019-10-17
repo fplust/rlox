@@ -1,4 +1,4 @@
-use crate::environment::{Closure, Environment};
+use crate::environment::{GcEnv, Environment};
 use crate::expr;
 use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
 use crate::lox_function::{Callable, LoxFunction};
@@ -58,8 +58,8 @@ static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
 static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
-    pub globals: Closure,
-    environment: Closure,
+    pub globals: GcEnv,
+    environment: GcEnv,
     locals: HashMap<usize, usize>,
 }
 
@@ -84,7 +84,7 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Closure) -> RTResult {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: GcEnv) -> RTResult {
         let env = self.environment.clone();
         self.environment = environment;
         // println!("current: {:?}\n", self.environment);
@@ -105,8 +105,6 @@ impl Interpreter {
     }
 
     fn lookup_variable(&self, name: &Token) -> RTResult {
-        // use std::rc::Rc;
-        // println!("{} ref count: {}, weak count: {}", name.lexeme, Rc::strong_count(&self.globals), Rc::weak_count(&self.globals));
         let distance = self.locals.get(&name.id);
         match distance {
             Some(d) => self.environment.borrow().get_at(*d, &name.lexeme),
@@ -121,9 +119,9 @@ impl expr::Visitor<RTResult> for Interpreter {
         let right = self.evalute(&expr.right)?;
 
         match expr.operator.token_type {
-            TokenType::PLUS => match (left, right) {
+            TokenType::PLUS => match (&left, &right) {
                 (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l + r)),
-                (Object::STRING(l), Object::STRING(r)) => Ok(Object::STRING(l + r.as_str())),
+                (Object::STRING(l), Object::STRING(r)) => Ok(Object::STRING(l.to_owned() + r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_STR_ERROR)),
             },
             TokenType::MINUS => match (left, right) {
@@ -163,7 +161,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                 (Object::NIL(_), _) => Ok(Object::BOOL(true)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
-            TokenType::EQUAL_EQUAL => match (left, right) {
+            TokenType::EQUAL_EQUAL => match (&left, &right) {
                 (Object::NUMBER(l), Object::NUMBER(r)) => {
                     Ok(Object::BOOL((l - r).abs() < std::f64::EPSILON))
                 }
@@ -252,7 +250,7 @@ impl expr::Visitor<RTResult> for Interpreter {
         for argument in expr.arguments.iter() {
             arguments.push(self.evalute(&argument)?);
         }
-        match callee {
+        match &callee {
             Object::Function(func) => {
                 if arguments.len() != func.arity() {
                     Err(RuntimeException::error(
@@ -322,7 +320,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
         self.execute_block(
             &stmt.statements,
-            Environment::from_env(&self.environment),
+            Environment::from_env(self.environment.clone()),
         )
     }
     fn visit_if_stmt(&mut self, stmt: &If) -> RTResult {
@@ -363,7 +361,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
         }
     }
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
-        let function = Object::Function(LoxFunction::new(stmt.clone(), &self.environment));
+        let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
         self.environment
             .borrow_mut()
             .define(stmt.name.lexeme.clone(), function);
