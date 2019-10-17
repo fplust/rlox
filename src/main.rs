@@ -7,10 +7,10 @@ mod tokentype;
 // mod ast_printer;
 mod environment;
 mod interpreter;
-mod object;
-mod lox_function;
 mod lox_class;
+mod lox_function;
 mod lox_instance;
+mod object;
 mod resolver;
 mod stmt;
 // use crate::ast_printer::AstPrinter;
@@ -36,7 +36,7 @@ fn main() {
     }
 }
 
-fn run_file(path: &String) {
+fn run_file(path: &str) {
     match File::open(path) {
         Err(e) => println!("{:?}", e),
         Ok(file) => {

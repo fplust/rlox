@@ -1,8 +1,8 @@
-use crate::object::Object;
-use crate::environment::{GcEnv, Environment};
+use crate::environment::Environment;
 use crate::interpreter::{Interpreter, RTResult, RuntimeException};
+use crate::object::Object;
 use crate::stmt::Function;
-use gc_derive::{Trace, Finalize};
+use gc_derive::{Finalize, Trace};
 
 pub trait Callable {
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> RTResult;
@@ -24,12 +24,11 @@ pub trait Callable {
 //     }
 // }
 
-
 #[derive(Trace, Finalize, Debug, Clone)]
 pub struct LoxFunction {
     #[unsafe_ignore_trace]
-    declaration: Function,  // 该项不会含有gc管理的对象
-    closure: GcEnv,
+    declaration: Function, // 该项不会含有gc管理的对象
+    closure: Environment,
 }
 
 // impl Clone for LoxFunction {
@@ -43,7 +42,7 @@ pub struct LoxFunction {
 // }
 
 impl LoxFunction {
-    pub fn new(declaration: Function, env: GcEnv) -> LoxFunction {
+    pub fn new(declaration: Function, env: Environment) -> LoxFunction {
         LoxFunction {
             declaration,
             closure: env,
@@ -59,9 +58,9 @@ impl LoxFunction {
 
 impl Callable for LoxFunction {
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Object>) -> RTResult {
-        let environment = Environment::from_env(self.closure.clone());
+        let mut environment = Environment::from_env(self.closure.clone());
         for (i, param) in self.declaration.params.iter().enumerate() {
-            environment.borrow_mut().define(param.lexeme.clone(), arguments[i].clone());
+            environment.define(param.lexeme.clone(), arguments[i].clone());
         }
         // println!("func: {:?}\n", environment);
         match interpreter.execute_block(&self.declaration.body, environment) {

@@ -145,10 +145,7 @@ impl Return {
 
 impl Class {
     pub fn new(name: Token, methods: Vec<Function>) -> Stmt {
-        Stmt::Class(Class {
-            name,
-            methods,
-        })
+        Stmt::Class(Class { name, methods })
     }
 }
 

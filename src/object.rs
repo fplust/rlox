@@ -1,7 +1,7 @@
-use crate::lox_function::LoxFunction;
 use crate::lox_class::LoxClass;
+use crate::lox_function::LoxFunction;
 use crate::lox_instance::LoxInstance;
-use gc_derive::{Trace, Finalize};
+use gc_derive::{Finalize, Trace};
 
 #[derive(Trace, Finalize, Debug, Clone)]
 pub enum Object {

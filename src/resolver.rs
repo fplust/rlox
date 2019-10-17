@@ -1,9 +1,9 @@
 use crate::error::parse_error;
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
 use crate::interpreter::Interpreter;
 use crate::stmt;
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
+use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use std::collections::HashMap;
 

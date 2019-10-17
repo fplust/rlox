@@ -1,8 +1,8 @@
-use crate::object::Object;
 use crate::interpreter::{Interpreter, RTResult};
 use crate::lox_function::Callable;
 use crate::lox_instance::LoxInstance;
-use gc_derive::{Trace, Finalize};
+use crate::object::Object;
+use gc_derive::{Finalize, Trace};
 
 #[derive(Trace, Finalize, Debug, Clone)]
 pub struct LoxClass {
@@ -11,9 +11,7 @@ pub struct LoxClass {
 
 impl LoxClass {
     pub fn new(name: String) -> LoxClass {
-        LoxClass {
-            name
-        }
+        LoxClass { name }
     }
 }
 

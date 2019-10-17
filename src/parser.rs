@@ -1,6 +1,6 @@
 use crate::error::parse_error;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
+use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::mem;
@@ -37,14 +37,8 @@ impl<'a> Parser<'a> {
     }
 
     fn class_declaration(&mut self) -> Stmt {
-        let name = self.consume(
-            TokenType::IDENTIFIER,
-            "Expect class name."
-        );
-        self.consume(
-            TokenType::LEFT_BRACE,
-            "Expect '{' before class body."
-        );
+        let name = self.consume(TokenType::IDENTIFIER, "Expect class name.");
+        self.consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
         let mut methods: Vec<Function> = Vec::new();
         while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
             if let Stmt::Function(f) = self.function("methods") {
@@ -53,10 +47,7 @@ impl<'a> Parser<'a> {
                 unreachable!()
             }
         }
-        self.consume(
-            TokenType::RIGHT_BRACE,
-            "Expect '}' after class body."
-        );
+        self.consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
         Class::new(name, methods)
     }
 
@@ -149,12 +140,12 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
         let mut body = self.statement();
 
-        if increment.is_some() {
-            body = Block::new(vec![body, Expression::new(increment.unwrap())]);
+        if let Some(i) = increment {
+            body = Block::new(vec![body, Expression::new(i)]);
         }
         body = While::new(token, condition, body);
-        if initializer.is_some() {
-            body = Block::new(vec![initializer.unwrap(), body]);
+        if let Some(i) = initializer {
+            body = Block::new(vec![i, body]);
         }
         body
     }

@@ -1,11 +1,11 @@
-use crate::environment::{GcEnv, Environment};
+use crate::environment::Environment;
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Grouping, Literal, Logical, Unary, Variable, Get};
-use crate::lox_function::{Callable, LoxFunction};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
 use crate::lox_class::LoxClass;
+use crate::lox_function::{Callable, LoxFunction};
 use crate::object::Object;
 use crate::stmt;
-use crate::stmt::{Block, Expression, Function, If, Print, Return, Stmt, Var, While, Class};
+use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::collections::HashMap;
@@ -58,8 +58,8 @@ static NUM_STR_ERROR: &str = "Operands must be two numbers or two strings.";
 static BOOL_ERROR: &str = "Operands must be bool.";
 
 pub struct Interpreter {
-    pub globals: GcEnv,
-    environment: GcEnv,
+    pub globals: Environment,
+    environment: Environment,
     locals: HashMap<usize, usize>,
 }
 
@@ -84,7 +84,7 @@ impl Interpreter {
     fn evalute(&mut self, expr: &Expr) -> RTResult {
         expr.accept(self)
     }
-    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: GcEnv) -> RTResult {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> RTResult {
         let env = self.environment.clone();
         self.environment = environment;
         // println!("current: {:?}\n", self.environment);
@@ -107,8 +107,8 @@ impl Interpreter {
     fn lookup_variable(&self, name: &Token) -> RTResult {
         let distance = self.locals.get(&name.id);
         match distance {
-            Some(d) => self.environment.borrow().get_at(*d, &name.lexeme),
-            None => self.globals.borrow().get(&name),
+            Some(d) => self.environment.get_at(*d, &name.lexeme),
+            None => self.globals.get(&name),
         }
     }
 }
@@ -214,11 +214,8 @@ impl expr::Visitor<RTResult> for Interpreter {
         let value = self.evalute(&expr.value)?;
         let distance = self.locals.get(&expr.name.id);
         match distance {
-            Some(d) => self
-                .environment
-                .borrow_mut()
-                .assign_at(*d, &expr.name, value),
-            None => self.globals.borrow_mut().assign(&expr.name, value),
+            Some(d) => self.environment.assign_at(*d, &expr.name, value),
+            None => self.globals.assign(&expr.name, value),
         }
         // self.environment
         //     .borrow_mut()
@@ -265,7 +262,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                 } else {
                     func.call(self, arguments)
                 }
-            },
+            }
             Object::Class(class) => {
                 if arguments.len() != class.arity() {
                     Err(RuntimeException::error(
@@ -280,7 +277,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                 } else {
                     class.call(self, arguments)
                 }
-            },
+            }
             _ => Err(RuntimeException::error(
                 &expr.paren,
                 "Can only call functions and classes.",
@@ -312,9 +309,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_var_stmt(&mut self, stmt: &Var) -> RTResult {
         let obj = self.evalute(&stmt.initializer)?;
-        self.environment
-            .borrow_mut()
-            .define(stmt.name.lexeme.clone(), obj);
+        self.environment.define(stmt.name.lexeme.clone(), obj);
         Ok(Object::NIL(None))
     }
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
@@ -362,9 +357,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
         let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
-        self.environment
-            .borrow_mut()
-            .define(stmt.name.lexeme.clone(), function);
+        self.environment.define(stmt.name.lexeme.clone(), function);
         Ok(Object::NIL(None))
     }
     fn visit_return_stmt(&mut self, stmt: &Return) -> RTResult {
@@ -373,7 +366,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     }
     fn visit_class_stmt(&mut self, stmt: &Class) -> RTResult {
         let class = Object::Class(LoxClass::new(stmt.name.lexeme.clone()));
-        self.environment.borrow_mut().define(stmt.name.lexeme.clone(), class);
+        self.environment.define(stmt.name.lexeme.clone(), class);
         Ok(Object::NIL(None))
     }
 }
