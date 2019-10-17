@@ -3,12 +3,13 @@ use crate::expr;
 use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
 use crate::lox_class::LoxClass;
 use crate::lox_function::{Callable, LoxFunction};
-use crate::object::Object;
+use crate::object::{Object, Obj};
 use crate::stmt;
 use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::collections::HashMap;
+use std::ops::Deref;
 
 #[derive(Debug, Clone)]
 pub struct RuntimeError {
@@ -97,7 +98,7 @@ impl Interpreter {
         }
         self.environment = env;
         // println!("up: {:?}\n", self.environment);
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
 
     pub fn resolve(&mut self, token_id: usize, depth: usize) {
@@ -113,61 +114,66 @@ impl Interpreter {
     }
 }
 
+
 impl expr::Visitor<RTResult> for Interpreter {
     fn visit_binary_expr(&mut self, expr: &Binary) -> RTResult {
-        let left = self.evalute(&expr.left)?;
-        let right = self.evalute(&expr.right)?;
+        let left_o = self.evalute(&expr.left)?;
+        let left_b = left_o.borrow();
+        let left = left_b.deref();
+        let right_o = self.evalute(&expr.right)?;
+        let right_b = right_o.borrow();
+        let right = right_b.deref();
 
         match expr.operator.token_type {
-            TokenType::PLUS => match (&left, &right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l + r)),
-                (Object::STRING(l), Object::STRING(r)) => Ok(Object::STRING(l.to_owned() + r)),
+            TokenType::PLUS => match (left, right) {
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::NUMBER(l + r)),
+                (Obj::STRING(l), Obj::STRING(r)) => Ok(Object::STRING(l.to_owned() + r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_STR_ERROR)),
             },
             TokenType::MINUS => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l - r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::NUMBER(l - r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::SLASH => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l / r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::NUMBER(l / r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::STAR => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::NUMBER(l * r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::NUMBER(l * r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::GREATER => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l > r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::BOOL(l > r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::GREATER_EQUAL => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l >= r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::BOOL(l >= r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::LESS => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l < r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::BOOL(l < r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::LESS_EQUAL => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => Ok(Object::BOOL(l <= r)),
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => Ok(Object::BOOL(l <= r)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::BANG_EQUAL => match (left, right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
-                    // Ok(Object::BOOL(l != r))
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => {
+                    // Ok(Obj::BOOL(l != r))
                     Ok(Object::BOOL((l - r).abs() >= std::f64::EPSILON))
                 }
-                (Object::NIL(_), Object::NIL(_)) => Ok(Object::BOOL(false)),
-                (Object::NIL(_), _) => Ok(Object::BOOL(true)),
+                (Obj::NIL(_), Obj::NIL(_)) => Ok(Object::BOOL(false)),
+                (Obj::NIL(_), _) => Ok(Object::BOOL(true)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::EQUAL_EQUAL => match (&left, &right) {
-                (Object::NUMBER(l), Object::NUMBER(r)) => {
+                (Obj::NUMBER(l), Obj::NUMBER(r)) => {
                     Ok(Object::BOOL((l - r).abs() < std::f64::EPSILON))
                 }
-                (Object::STRING(l), Object::STRING(r)) => Ok(Object::BOOL(l == r)),
-                (Object::NIL(_), Object::NIL(_)) => Ok(Object::BOOL(true)),
-                (Object::NIL(_), _) => Ok(Object::BOOL(false)),
+                (Obj::STRING(l), Obj::STRING(r)) => Ok(Object::BOOL(l == r)),
+                (Obj::NIL(_), Obj::NIL(_)) => Ok(Object::BOOL(true)),
+                (Obj::NIL(_), _) => Ok(Object::BOOL(false)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             _ => {
@@ -183,7 +189,7 @@ impl expr::Visitor<RTResult> for Interpreter {
             Literals::NUMBER(n) => Ok(Object::NUMBER(n)),
             Literals::STRING(s) => Ok(Object::STRING(s)),
             Literals::BOOL(s) => Ok(Object::BOOL(s)),
-            Literals::NIL(s) => Ok(Object::NIL(s)),
+            Literals::NIL(_) => Ok(Object::NIL()),
         }
     }
 
@@ -191,8 +197,8 @@ impl expr::Visitor<RTResult> for Interpreter {
         let right = self.evalute(&expr.right)?;
 
         match expr.operator.token_type {
-            TokenType::MINUS => match right {
-                Object::NUMBER(n) => Ok(Object::NUMBER(-n)),
+            TokenType::MINUS => match right.borrow().deref() {
+                Obj::NUMBER(n) => Ok(Object::NUMBER(-n)),
                 _ => Err(RuntimeException::error(&expr.operator, NUM_ERROR)),
             },
             TokenType::BANG => {
@@ -242,13 +248,15 @@ impl expr::Visitor<RTResult> for Interpreter {
         self.evalute(&expr.right)
     }
     fn visit_call_expr(&mut self, expr: &Call) -> RTResult {
-        let callee = self.evalute(&expr.callee)?;
+        let callee_o = self.evalute(&expr.callee)?;
+        let callee_b = callee_o.borrow();
+        let callee = callee_b.deref();
         let mut arguments: Vec<Object> = Vec::new();
         for argument in expr.arguments.iter() {
             arguments.push(self.evalute(&argument)?);
         }
-        match &callee {
-            Object::Function(func) => {
+        match callee {
+            Obj::Function(func) => {
                 if arguments.len() != func.arity() {
                     Err(RuntimeException::error(
                         &expr.paren,
@@ -263,7 +271,7 @@ impl expr::Visitor<RTResult> for Interpreter {
                     func.call(self, arguments)
                 }
             }
-            Object::Class(class) => {
+            Obj::Class(class) => {
                 if arguments.len() != class.arity() {
                     Err(RuntimeException::error(
                         &expr.paren,
@@ -305,12 +313,12 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_print_stmt(&mut self, stmt: &Print) -> RTResult {
         let obj = self.evalute(&stmt.expression).unwrap();
         println!("{:?}", obj);
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
     fn visit_var_stmt(&mut self, stmt: &Var) -> RTResult {
         let obj = self.evalute(&stmt.initializer)?;
         self.environment.define(stmt.name.lexeme.clone(), obj);
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
     fn visit_block_stmt(&mut self, stmt: &Block) -> RTResult {
         self.execute_block(
@@ -337,7 +345,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
         } else if stmt.else_branch.is_some() {
             self.execute(stmt.else_branch.as_ref().unwrap())?;
         }
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
     fn visit_while_stmt(&mut self, stmt: &While) -> RTResult {
         loop {
@@ -349,7 +357,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
                 )
             })?;
             if !b {
-                return Ok(Object::NIL(None));
+                return Ok(Object::NIL());
             } else {
                 self.execute(&stmt.body)?;
             }
@@ -358,7 +366,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
         let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
         self.environment.define(stmt.name.lexeme.clone(), function);
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
     fn visit_return_stmt(&mut self, stmt: &Return) -> RTResult {
         let obj = self.evalute(&stmt.value)?;
@@ -367,7 +375,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
     fn visit_class_stmt(&mut self, stmt: &Class) -> RTResult {
         let class = Object::Class(LoxClass::new(stmt.name.lexeme.clone()));
         self.environment.define(stmt.name.lexeme.clone(), class);
-        Ok(Object::NIL(None))
+        Ok(Object::NIL())
     }
 }
 

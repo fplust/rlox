@@ -93,7 +93,8 @@ impl Environment {
                 .values
                 .get(name)
                 .unwrap()
-                .clone())
+                .clone()
+            )
         }
     }
 
