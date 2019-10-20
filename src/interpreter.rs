@@ -1,6 +1,6 @@
 use crate::environment::Environment;
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable, Set, This};
 use crate::lox_class::LoxClass;
 use crate::lox_function::{Callable, LoxFunction};
 use crate::object::{Object, Obj};
@@ -9,7 +9,7 @@ use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, V
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone)]
 pub struct RuntimeError {
@@ -293,16 +293,32 @@ impl expr::Visitor<RTResult> for Interpreter {
         }
     }
     fn visit_get_expr(&mut self, expr: &Get) -> RTResult {
-        unimplemented!()
-        // let object = self.evalute(&expr.object);
-        // if let Object::Instance(i) = object {
-        //     Ok(i.get(&expr.name))
-        // } else {
-        //     Err(RuntimeException::error(
-        //             &expr.name,
-        //             "Only instances have properties."
-        //             ))
-        // }
+        let object = self.evalute(&expr.object)?;
+        let o_b = object.borrow();
+        if let Obj::Instance(i) = o_b.deref() {
+            Ok(i.get(&expr)?)
+        } else {
+            Err(RuntimeException::error(
+                    &expr.name,
+                    "Only instances have properties."
+                    ))
+        }
+    }
+    fn visit_set_expr(&mut self, expr: &Set) -> RTResult {
+        let object = self.evalute(&expr.object)?;
+        let mut o_b = object.borrow_mut();
+        if let Obj::Instance(ref mut i) = o_b.deref_mut() {
+            let value = self.evalute(&expr.value)?;
+            Ok(i.set(&expr, value)?)
+        } else {
+            Err(RuntimeException::error(
+                    &expr.name,
+                    "Only instances have properties."
+                    ))
+        }
+    }
+    fn visit_this_expr(&mut self, expr: &This) -> RTResult {
+        self.lookup_variable(&expr.keyword)
     }
 }
 
@@ -364,7 +380,7 @@ impl stmt::Visitor<RTResult> for Interpreter {
         }
     }
     fn visit_function_stmt(&mut self, stmt: &Function) -> RTResult {
-        let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone()));
+        let function = Object::Function(LoxFunction::new(stmt.clone(), self.environment.clone(), false));
         self.environment.define(stmt.name.lexeme.clone(), function);
         Ok(Object::NIL())
     }
@@ -373,7 +389,13 @@ impl stmt::Visitor<RTResult> for Interpreter {
         Err(RuntimeException::return_v(obj))
     }
     fn visit_class_stmt(&mut self, stmt: &Class) -> RTResult {
-        let class = Object::Class(LoxClass::new(stmt.name.lexeme.clone()));
+        let mut methods = HashMap::new();
+        for method in stmt.methods.iter() {
+            let name = method.name.lexeme.clone();
+            let function = Object::Function(LoxFunction::new(method.clone(), self.environment.clone(), name == "init"));
+            methods.insert(name, function);
+        }
+        let class = Object::Class(LoxClass::new(stmt.name.lexeme.clone(), methods));
         self.environment.define(stmt.name.lexeme.clone(), class);
         Ok(Object::NIL())
     }

@@ -1,5 +1,5 @@
 use crate::error::parse_error;
-use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable, Set, This};
 use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
@@ -216,13 +216,20 @@ impl<'a> Parser<'a> {
         if self.match_token(vec![TokenType::EQUAL]) {
             let equals = self.previous();
             let value = self.assignment()?;
-            if let Expr::Variable(e) = expr {
-                let name = e.name;
-                return Ok(Assign::new(name, value));
-            };
-            return Err(self
-                .error(&equals, "Invalid assignment target.")
-                .unwrap_err());
+            match expr {
+                Expr::Variable(e) => {
+                    let name = e.name;
+                    return Ok(Assign::new(name, value));
+                }
+                Expr::Get(e) => {
+                    return Ok(Set::new(*e.object, e.name, value))
+                }
+                _ => {
+                    return Err(self
+                        .error(&equals, "Invalid assignment target.")
+                        .unwrap_err());
+                }
+            }
         }
         Ok(expr)
     }
@@ -349,6 +356,9 @@ impl<'a> Parser<'a> {
             let expr = self.expression()?;
             self.consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
             return Ok(Grouping::new(expr));
+        }
+        if self.match_token(vec![TokenType::THIS]) {
+            return Ok(This::new(self.previous()))
         }
         if self.match_token(vec![TokenType::IDENTIFIER]) {
             let name = self.previous();

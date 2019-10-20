@@ -1,22 +1,32 @@
 use crate::error::parse_error;
 use crate::expr;
-use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable};
+use crate::expr::{Assign, Binary, Call, Expr, Get, Grouping, Literal, Logical, Unary, Variable, Set, This};
 use crate::interpreter::Interpreter;
 use crate::stmt;
 use crate::stmt::{Block, Class, Expression, Function, If, Print, Return, Stmt, Var, While};
 use crate::token::Token;
+use crate::tokentype::Literals;
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
 enum FunctionType {
     NONE,
     FUNCTION,
+    METHOD,
+    INITIALIZER,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum ClassType {
+    NONE,
+    CLASS,
 }
 
 pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
     scopes: Vec<HashMap<String, bool>>,
     current_func: FunctionType,
+    current_class: ClassType,
 }
 
 impl<'a> Resolver<'a> {
@@ -25,6 +35,7 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: Vec::new(),
             current_func: FunctionType::NONE,
+            current_class: ClassType::NONE,
         }
     }
     pub fn resolves(&mut self, statements: &Vec<Stmt>) {
@@ -143,6 +154,16 @@ impl<'a> expr::Visitor<()> for Resolver<'a> {
     fn visit_get_expr(&mut self, expr: &Get) {
         self.resolve_e(&expr.object);
     }
+    fn visit_set_expr(&mut self, expr: &Set) {
+        self.resolve_e(&expr.value);
+        self.resolve_e(&expr.object);
+    }
+    fn visit_this_expr(&mut self, expr: &This) {
+        if let ClassType::NONE = self.current_class  {
+            panic!("Cannot use 'this' outside of a class.");
+        }
+        self.resolve_local(&expr.keyword);
+    }
 }
 
 impl<'a> stmt::Visitor<()> for Resolver<'a> {
@@ -176,7 +197,16 @@ impl<'a> stmt::Visitor<()> for Resolver<'a> {
     }
     fn visit_return_stmt(&mut self, stmt: &Return) {
         match self.current_func {
-            FunctionType::FUNCTION => self.resolve_e(&stmt.value),
+            FunctionType::FUNCTION | FunctionType::METHOD => self.resolve_e(&stmt.value),
+            FunctionType::INITIALIZER => {
+                if let Expr::Literal(l) = stmt.value.as_ref() {
+                    if let Literals::NIL(_) = l.value {
+                        self.resolve_e(&stmt.value);
+                        return;
+                    }
+                }
+                panic!("Can not return a value from an initializer.")
+            }
             FunctionType::NONE => {
                 parse_error(&stmt.keyword, "Cannot return from top-level code.");
                 panic!();
@@ -188,7 +218,22 @@ impl<'a> stmt::Visitor<()> for Resolver<'a> {
         self.resolve_s(&stmt.body);
     }
     fn visit_class_stmt(&mut self, stmt: &Class) {
+        let enclosing_class = self.current_class;
+        self.current_class = ClassType::CLASS;
         self.declare(&stmt.name);
         self.define(&stmt.name);
+        self.begin_scope();
+        let last = self.scopes.len() - 1;
+        self.scopes[last].insert("this".to_string(), true);
+
+        for method in stmt.methods.iter() {
+            if method.name.lexeme == "init" {
+                self.resolve_function(method, FunctionType::INITIALIZER);
+            } else {
+                self.resolve_function(method, FunctionType::METHOD);
+            }
+        }
+        self.end_scope();
+        self.current_class = enclosing_class;
     }
 }

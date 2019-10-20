@@ -1,10 +1,32 @@
 class DevonshireCream {
+  init() {
+      return;
+  }
   serveOn() {
+    print this.a;
     return "Scones";
+  }
+  serveOn2() {
+    return "Scones";
+    print this.a;
   }
 }
 
+class B {}
+
 var c = DevonshireCream();
+var b = B();
 
 print DevonshireCream;
 print c;
+c.a = "abc";
+print c.a;
+print c.serveOn;
+c.serveOn();
+
+b.a = "def";
+b.serveOn = c.serveOn;
+b.serveOn();
+
+print c.serveOn2();
+print c.init();
