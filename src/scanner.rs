@@ -1,31 +1,29 @@
 use crate::error::error;
 use crate::token::Token;
 use crate::tokentype::{Literals, TokenType};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
-lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
-        let mut m = HashMap::new();
-        m.insert("and", TokenType::AND);
-        m.insert("class", TokenType::CLASS);
-        m.insert("if", TokenType::IF);
-        m.insert("else", TokenType::ELSE);
-        m.insert("true", TokenType::TRUE);
-        m.insert("false", TokenType::FALSE);
-        m.insert("for", TokenType::FOR);
-        m.insert("fun", TokenType::FUN);
-        m.insert("nil", TokenType::NIL);
-        m.insert("or", TokenType::OR);
-        m.insert("print", TokenType::PRINT);
-        m.insert("return", TokenType::RETURN);
-        m.insert("super", TokenType::SUPER);
-        m.insert("this", TokenType::THIS);
-        m.insert("var", TokenType::VAR);
-        m.insert("while", TokenType::WHILE);
-        m
-    };
-}
+static KEYWORDS: Lazy<HashMap<&'static str, TokenType>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("and", TokenType::AND);
+    m.insert("class", TokenType::CLASS);
+    m.insert("if", TokenType::IF);
+    m.insert("else", TokenType::ELSE);
+    m.insert("true", TokenType::TRUE);
+    m.insert("false", TokenType::FALSE);
+    m.insert("for", TokenType::FOR);
+    m.insert("fun", TokenType::FUN);
+    m.insert("nil", TokenType::NIL);
+    m.insert("or", TokenType::OR);
+    m.insert("print", TokenType::PRINT);
+    m.insert("return", TokenType::RETURN);
+    m.insert("super", TokenType::SUPER);
+    m.insert("this", TokenType::THIS);
+    m.insert("var", TokenType::VAR);
+    m.insert("while", TokenType::WHILE);
+    m
+});
 
 pub struct Scanner<'a> {
     source: &'a String,
